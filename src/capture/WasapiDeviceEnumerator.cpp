@@ -101,6 +101,8 @@ bool WasapiDeviceEnumerator::enumerate(
     bool ok = false;
     {
         ComPtr<IMMDeviceEnumerator> enumerator;
+        ComPtr<IMMDevice> defaultDevice;
+        ComPtr<IMMDeviceCollection> collection;
         HRESULT hr = CoCreateInstance(
             __uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
             IID_PPV_ARGS(&enumerator));
@@ -108,7 +110,6 @@ bool WasapiDeviceEnumerator::enumerate(
             error = "MMDeviceEnumerator konnte nicht erstellt werden: " + hrText(hr);
         } else {
             std::wstring defaultId;
-            ComPtr<IMMDevice> defaultDevice;
             if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(
                     toDataFlow(flow), eConsole, &defaultDevice))) {
                 LPWSTR rawDefaultId = nullptr;
@@ -118,7 +119,6 @@ bool WasapiDeviceEnumerator::enumerate(
                 }
             }
 
-            ComPtr<IMMDeviceCollection> collection;
             hr = enumerator->EnumAudioEndpoints(
                 toDataFlow(flow), DEVICE_STATE_ACTIVE, &collection);
             if (FAILED(hr)) {
