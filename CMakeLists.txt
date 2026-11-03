@@ -52,6 +52,8 @@ if(WIN32)
         src/capture/DxgiDesktopCaptureSource.h
         src/capture/D3D11VideoProcessorCapabilities.cpp
         src/capture/D3D11VideoProcessorCapabilities.h
+        src/capture/D3D11BgraToNv12Converter.cpp
+        src/capture/D3D11BgraToNv12Converter.h
     )
     target_compile_features(streamforge_dxgi_capture PUBLIC cxx_std_20)
     target_include_directories(streamforge_dxgi_capture
