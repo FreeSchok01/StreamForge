@@ -18,14 +18,17 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 
 WASAPI microphone/loopback capture, active endpoint enumeration and DXGI
 desktop capture are implemented as Windows-only sources and are coordinated
-by a Windows recording-session controller. DXGI now retains an owned D3D11
-BGRA texture and its D3D11 device in a shared COM lifetime lease alongside
-the CPU staging-readback frame, so future GPU consumers can access both safely
-across the dispatcher handoff.
-The media frame contract also accepts native-only D3D11 BGRA frames for future
-GPU encoders. The initial NVENC adapter performs hardware compression from CPU
-frames; direct D3D11 texture import is not implemented yet. Direct GPU encoding, hardware encoder adapters, desktop UI and Twitch
-output are not yet implemented.
+by a Windows recording-session controller. DXGI can retain an owned D3D11 BGRA texture and its D3D11 device in a shared
+COM lifetime lease alongside the optional CPU staging-readback frame, so GPU
+consumers can access the resource across the dispatcher handoff. CPU readback
+and native texture retention are independently configurable.
+The media frame contract also accepts native-only D3D11 BGRA frames. The FFmpeg
+NVENC adapter supports H.264, HEVC and AV1 hardware compression from CPU frames;
+it does not yet import the retained D3D11 texture directly. FFmpeg capability
+reporting includes build-time encoder presence and advertised D3D11VA/CUDA
+hardware-frame configurations, but does not probe the installed GPU or driver.
+Direct D3D11-to-NVENC frame submission, AMD AMF, Intel oneVPL/QSV, desktop UI
+and Twitch output are not yet implemented.
 
 ## Build: core lifecycle tests
 
