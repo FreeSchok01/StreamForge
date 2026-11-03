@@ -501,6 +501,10 @@ bool DxgiDesktopCaptureSource::isRunning() const noexcept {
     return m_impl->running.load(std::memory_order_acquire);
 }
 
+std::string DxgiDesktopCaptureSource::lastError() const {
+    return m_impl->getError();
+}
+
 } // namespace streamforge
 
 #endif
