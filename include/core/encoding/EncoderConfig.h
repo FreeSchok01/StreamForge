@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/media/MediaTypes.h"
+
 #include <cstdint>
 
 namespace streamforge {
@@ -19,6 +21,7 @@ struct VideoEncoderConfig {
     std::int32_t fpsDenominator{1};
     std::int32_t bitrate{6'000'000};
     std::int32_t maxBitrate{6'000'000};
+    std::int64_t timestampOriginNs{kNoTimestamp};
     std::int32_t keyframeInterval{120};
     bool lowLatency{true};
     bool allowBFrames{false};
@@ -31,6 +34,7 @@ struct AudioEncoderConfig {
     std::int32_t outputSampleRate{48000};
     std::int32_t outputChannels{2};
     std::int32_t bitrate{192000};
+    std::int64_t timestampOriginNs{kNoTimestamp};
 };
 
 } // namespace streamforge
