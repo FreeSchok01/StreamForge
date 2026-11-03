@@ -316,6 +316,20 @@ OwnedVideoFrame makeOwnedVideoFrame() {
     return frame;
 }
 
+OwnedVideoFrame makeNativeOnlyVideoFrame() {
+    OwnedVideoFrame frame;
+    frame.width = 2;
+    frame.height = 2;
+    frame.pixelFormat = PixelFormat::BGRA8;
+    frame.timebase = {1, 30};
+    auto lease = std::make_shared<int>(9);
+    frame.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+    frame.nativeResource = lease.get();
+    frame.nativeDevice = lease.get();
+    frame.nativeResourceOwner = std::move(lease);
+    return frame;
+}
+
 void nativeVideoResourceLifetime() {
     auto owner = std::make_shared<int>(42);
     OwnedVideoFrame frame = makeOwnedVideoFrame();
@@ -365,7 +379,9 @@ void dispatcherNormalStop() {
     RecordingInputDispatcher dispatcher(pipeline);
     check(dispatcher.start(error), "dispatcher start");
     check(dispatcher.trySubmitAudio(makeAudioFrame()), "dispatcher audio submit");
-    check(dispatcher.trySubmitVideo(makeOwnedVideoFrame()), "dispatcher video submit");
+    check(dispatcher.trySubmitVideo(makeOwnedVideoFrame()), "dispatcher CPU video submit");
+    check(dispatcher.trySubmitVideo(makeNativeOnlyVideoFrame()),
+          "dispatcher native-only video submit");
     check(dispatcher.stop(RecordingStopMode::Graceful, error), "dispatcher graceful stop");
     check(pipeline.snapshot().state == RecordingState::Completed,
           "dispatcher completed recording");
