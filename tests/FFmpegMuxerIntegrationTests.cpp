@@ -1,17 +1,14 @@
-#include "FFmpegAudioEncoder.h"
-#include "FFmpegMediaMuxer.h"
-#include "FFmpegVideoEncoder.h"
+#include "FFmpegRecordingFactories.h"
+#include "RecordingPipeline.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 using namespace streamforge;
@@ -25,153 +22,92 @@ void check(bool condition, const std::string& message) {
     }
 }
 
-bool makeAacPackets(EncodedStreamDescriptor& descriptor,
-                    std::vector<EncodedPacket>& packets,
-                    std::string& error) {
-    AudioEncoderConfig config;
-    config.codec = AudioCodec::AAC;
-    config.inputSampleRate = 48000;
-    config.inputChannels = 2;
-    config.outputSampleRate = 48000;
-    config.outputChannels = 2;
-    config.bitrate = 128000;
-
-    EncodedPacketCallback callback = [&packets](
-        EncodedPacket&& packet, std::string&) {
-        packets.push_back(std::move(packet));
-        return true;
-    };
-
-    FFmpegAudioEncoder encoder(config, std::move(callback), 0);
-    if (!encoder.initialize(error)) return false;
-    if (!encoder.getStreamDescriptor(descriptor, error)) {
-        encoder.shutdown();
-        return false;
-    }
-
-    constexpr int frameCount = 1024;
-    constexpr std::int64_t frameDurationNs = 21'333'333;
-    for (int index = 0; index < 8; ++index) {
-        AudioFrame frame;
-        frame.sampleRate = 48000;
-        frame.channels = 2;
-        frame.frameCount = frameCount;
-        frame.timestampNs = static_cast<std::int64_t>(index) * frameDurationNs;
-        frame.samples.assign(static_cast<std::size_t>(frameCount) * 2U, 0.0F);
-        if (!encoder.encode(frame, error)) {
-            encoder.shutdown();
-            return false;
-        }
-    }
-
-    const bool flushed = encoder.flush(error);
-    encoder.shutdown();
-    if (!flushed) return false;
-    return !packets.empty() && descriptor.isValid();
-}
-
-
-bool makeH264Packets(EncodedStreamDescriptor& descriptor,
-                     std::vector<EncodedPacket>& packets,
-                     std::string& error) {
-    VideoEncoderConfig config;
-    config.codec = VideoCodec::H264;
-    config.backend = VideoEncoderBackend::Software;
-    config.rateControl = VideoRateControl::VBR;
-    config.width = 320;
-    config.height = 240;
-    config.fpsNumerator = 30;
-    config.fpsDenominator = 1;
-    config.bitrate = 500000;
-    config.maxBitrate = 700000;
-    config.keyframeInterval = 30;
-    config.lowLatency = true;
-    config.allowBFrames = false;
-
-    EncodedPacketCallback callback = [&packets](
-        EncodedPacket&& packet, std::string&) {
-        packets.push_back(std::move(packet));
-        return true;
-    };
-
-    FFmpegVideoEncoder encoder(config, std::move(callback), 1);
-    if (!encoder.initialize(error)) return false;
-    if (!encoder.getStreamDescriptor(descriptor, error)) {
-        encoder.shutdown();
-        return false;
-    }
-
-    std::vector<std::uint8_t> pixels(
-        static_cast<std::size_t>(config.width) *
-        static_cast<std::size_t>(config.height) * 4U);
-    for (int index = 0; index < 8; ++index) {
-        std::fill(pixels.begin(), pixels.end(),
-                  static_cast<std::uint8_t>(index * 24));
-        VideoFrameInput frame;
-        frame.data[0] = pixels.data();
-        frame.linesize[0] = config.width * 4;
-        frame.width = config.width;
-        frame.height = config.height;
-        frame.pixelFormat = PixelFormat::BGRA8;
-        frame.pts = index;
-        frame.timebase = {1, 30};
-        if (!encoder.encode(frame, error)) {
-            encoder.shutdown();
-            return false;
-        }
-    }
-
-    const bool flushed = encoder.flush(error);
-    encoder.shutdown();
-    if (!flushed) return false;
-    return !packets.empty() && descriptor.isValid();
-}
-
 } // namespace
 
 int main() {
-    std::string error;
-    EncodedStreamDescriptor audioDescriptor;
-    EncodedStreamDescriptor videoDescriptor;
-    std::vector<EncodedPacket> audioPackets;
-    std::vector<EncodedPacket> videoPackets;
-    check(makeAacPackets(audioDescriptor, audioPackets, error),
-          "FFmpeg audio encoder produces AAC: " + error);
-    check(makeH264Packets(videoDescriptor, videoPackets, error),
-          "FFmpeg video encoder produces H.264: " + error);
-
     const auto path = std::filesystem::temp_directory_path() /
-                      "streamforge_ffmpeg_muxer_integration.mkv";
+                      "streamforge_recording_pipeline_integration.mkv";
     std::error_code fsError;
     std::filesystem::remove(path, fsError);
 
-    FFmpegMediaMuxer muxer;
-    RecordingOutputConfig output;
-    output.outputPath = path.string();
-    output.container = RecordingContainer::Matroska;
-    output.overwriteExisting = true;
+    RecordingPipelineConfig config;
+    config.audio.codec = AudioCodec::AAC;
+    config.audio.inputSampleRate = 48000;
+    config.audio.inputChannels = 2;
+    config.audio.outputSampleRate = 48000;
+    config.audio.outputChannels = 2;
+    config.audio.bitrate = 128000;
 
-    check(muxer.configure(output, {audioDescriptor, videoDescriptor}, error),
-          "muxer configure: " + error);
-    check(muxer.open(error), "muxer open: " + error);
+    config.video.codec = VideoCodec::H264;
+    config.video.backend = VideoEncoderBackend::Software;
+    config.video.rateControl = VideoRateControl::VBR;
+    config.video.width = 320;
+    config.video.height = 240;
+    config.video.fpsNumerator = 30;
+    config.video.fpsDenominator = 1;
+    config.video.bitrate = 500000;
+    config.video.maxBitrate = 700000;
+    config.video.keyframeInterval = 30;
+    config.video.lowLatency = true;
+    config.video.allowBFrames = false;
 
-    for (const auto& packet : audioPackets) {
-        check(muxer.writePacket(packet, error),
-              "muxer write AAC packet: " + error);
+    config.output.outputPath = path.string();
+    config.output.container = RecordingContainer::Matroska;
+    config.output.overwriteExisting = true;
+    config.packetQueue.maxPackets = 512;
+    config.packetQueue.maxBytes = 32U * 1024U * 1024U;
+
+    RecordingPipeline pipeline(makeFFmpegRecordingPipelineFactories());
+    std::string error;
+    check(pipeline.start(config, error),
+          "real RecordingPipeline start: " + error);
+
+    constexpr int audioFrameCount = 1024;
+    constexpr std::int64_t audioFrameDurationNs = 21'333'333;
+    for (int index = 0; index < 8; ++index) {
+        AudioFrame audio;
+        audio.sampleRate = 48000;
+        audio.channels = 2;
+        audio.frameCount = audioFrameCount;
+        audio.timestampNs = static_cast<std::int64_t>(index) *
+                            audioFrameDurationNs;
+        audio.samples.assign(
+            static_cast<std::size_t>(audioFrameCount) * 2U, 0.0F);
+        check(pipeline.submitAudioFrame(audio, error),
+              "submit real audio frame: " + error);
     }
-    for (const auto& packet : videoPackets) {
-        check(muxer.writePacket(packet, error),
-              "muxer write H.264 packet: " + error);
+
+    std::vector<std::uint8_t> pixels(
+        static_cast<std::size_t>(config.video.width) *
+        static_cast<std::size_t>(config.video.height) * 4U);
+    for (int index = 0; index < 8; ++index) {
+        std::fill(pixels.begin(), pixels.end(),
+                  static_cast<std::uint8_t>(index * 24));
+        VideoFrameInput video;
+        video.data[0] = pixels.data();
+        video.linesize[0] = config.video.width * 4;
+        video.width = config.video.width;
+        video.height = config.video.height;
+        video.pixelFormat = PixelFormat::BGRA8;
+        video.pts = index;
+        video.timebase = {1, 30};
+        check(pipeline.submitVideoFrame(video, error),
+              "submit real video frame: " + error);
     }
-    check(muxer.finalize(error), "muxer finalize: " + error);
+
+    check(pipeline.stop(RecordingStopMode::Graceful, error),
+          "real RecordingPipeline graceful stop: " + error);
+    check(pipeline.snapshot().state == RecordingState::Completed,
+          "pipeline reached Completed");
 
     AVFormatContext* input = nullptr;
     const int openResult = avformat_open_input(
         &input, path.string().c_str(), nullptr, nullptr);
-    check(openResult >= 0, "reopen Matroska output");
+    check(openResult >= 0, "reopen recorded Matroska file");
     const int infoResult = avformat_find_stream_info(input, nullptr);
-    check(infoResult >= 0, "read Matroska stream information");
-    check(input->nb_streams == 2, "audio and video streams in output");
+    check(infoResult >= 0, "read recorded Matroska stream information");
+    check(input->nb_streams == 2, "recording contains audio and video streams");
+
     bool foundAac = false;
     bool foundH264 = false;
     for (unsigned int index = 0; index < input->nb_streams; ++index) {
@@ -179,11 +115,11 @@ int main() {
         foundAac = foundAac || id == AV_CODEC_ID_AAC;
         foundH264 = foundH264 || id == AV_CODEC_ID_H264;
     }
-    check(foundAac, "output contains AAC audio");
-    check(foundH264, "output contains H.264 video");
+    check(foundAac, "recording contains AAC audio");
+    check(foundH264, "recording contains H.264 video");
     avformat_close_input(&input);
 
     std::filesystem::remove(path, fsError);
-    std::cout << "FFmpeg AAC/H.264 and Matroska A/V integration test passed.\n";
+    std::cout << "Real RecordingPipeline AAC/H.264 Matroska integration passed.\n";
     return 0;
 }
