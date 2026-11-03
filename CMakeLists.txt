@@ -44,6 +44,9 @@ if(STREAMFORGE_WITH_FFMPEG)
             tests/FFmpegMuxerIntegrationTests.cpp
         )
         target_compile_features(streamforge_ffmpeg_muxer_tests PRIVATE cxx_std_20)
+        target_include_directories(streamforge_ffmpeg_muxer_tests PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/recording
+        )
         target_link_libraries(streamforge_ffmpeg_muxer_tests PRIVATE
             streamforge_ffmpeg_muxer
             PkgConfig::FFMPEG
