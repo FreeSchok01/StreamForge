@@ -45,6 +45,17 @@ bool inputPixelFormat(PixelFormat format, AVPixelFormat& result) {
     return false;
 }
 
+const AVCodec* findSoftwareEncoder(AVCodecID id) {
+    void* iterator = nullptr;
+    while (const AVCodec* candidate = av_codec_iterate(&iterator)) {
+        if (candidate->id == id && av_codec_is_encoder(candidate) &&
+            (candidate->capabilities & AV_CODEC_CAP_HARDWARE) == 0) {
+            return candidate;
+        }
+    }
+    return nullptr;
+}
+
 } // namespace
 
 struct FFmpegVideoEncoder::Impl final {
@@ -198,14 +209,14 @@ std::vector<FFmpegVideoEncoderCapability> FFmpegVideoEncoder::queryCapabilities(
             candidate.codec != VideoCodec::H264) {
             AVCodecID id = AV_CODEC_ID_NONE;
             if (codecId(candidate.codec, id))
-                encoder = avcodec_find_encoder(id);
+                encoder = findSoftwareEncoder(id);
         } else {
             encoder = avcodec_find_encoder_by_name(candidate.name);
             if (!encoder && candidate.backend == VideoEncoderBackend::Software &&
                 candidate.codec == VideoCodec::H264) {
                 AVCodecID id = AV_CODEC_ID_NONE;
                 if (codecId(candidate.codec, id))
-                    encoder = avcodec_find_encoder(id);
+                    encoder = findSoftwareEncoder(id);
             }
         }
 
@@ -268,7 +279,7 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
         if (config.codec == VideoCodec::H264) {
             encoder = avcodec_find_encoder_by_name("libx264");
         }
-        if (!encoder) encoder = avcodec_find_encoder(id);
+        if (!encoder) encoder = findSoftwareEncoder(id);
         if (!encoder) {
             error = "FFmpeg-Softwareencoder für den angeforderten Video-Codec fehlt.";
             m_impl->state = Impl::State::Failed;
