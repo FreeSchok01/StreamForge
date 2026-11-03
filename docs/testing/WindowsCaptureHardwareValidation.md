@@ -65,6 +65,6 @@ This checklist is a manual validation plan, not evidence that the listed hardwar
 
 - WASAPI endpoint hotplug/default-device recovery is not implemented.
 - DXGI retries `DXGI_ERROR_ACCESS_LOST` recovery against the existing adapter/output for up to approximately five seconds; adapter/output re-enumeration is not yet implemented, so topology changes that invalidate those objects may still require a new session.
-- DXGI currently copies frames through a CPU-readable staging texture; GPU-native frame handoff is future work.
+- DXGI retains a separate owned D3D11 BGRA texture alongside the CPU-readable staging copy. The dispatcher transports the resource lifetime lease, but the FFmpeg software encoder still reads CPU pixels; direct GPU encoding and zero-copy transport are not implemented.
 - Camera capture, cursor composition, and display rotation handling are not yet complete.
 - Hardware encoder adapters are not yet implemented.
