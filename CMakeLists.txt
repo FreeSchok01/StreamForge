@@ -20,6 +20,7 @@ if(STREAMFORGE_WITH_FFMPEG)
         libavutil
         libswresample
         libswscale
+        libswscale
     )
 
     add_library(streamforge_ffmpeg_muxer
