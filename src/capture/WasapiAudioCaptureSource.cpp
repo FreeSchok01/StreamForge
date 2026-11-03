@@ -16,6 +16,7 @@
 #include <cstring>
 #include <future>
 #include <limits>
+#include <new>
 #include <utility>
 #include <vector>
 
