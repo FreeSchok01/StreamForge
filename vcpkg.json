@@ -1,0 +1,13 @@
+{
+  "name": "streamforge",
+  "version-string": "0.1.0",
+  "description": "Independent open-source streaming studio and media engine",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "features": [
+        "x264"
+      ]
+    }
+  ]
+}
