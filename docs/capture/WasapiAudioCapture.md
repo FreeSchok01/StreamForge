@@ -51,7 +51,10 @@ separate worker threads.
 
 - Device enumeration and UI selection are not implemented yet; callers may pass
   a known endpoint ID or use the Windows default endpoint.
-- Device invalidation currently reports an error and stops capture. Automatic
-  hot-plug recovery and endpoint-change notifications are future work.
+- Device invalidation and WASAPI resource/service failures report actionable
+  diagnostics and stop capture cleanly. In particular, an unplugged endpoint
+  is distinguished from a generic HRESULT and requires a new device selection
+  and capture initialization. Automatic hot-plug recovery and endpoint-change
+  notifications are future work.
 - The Windows CI job compiles this source but does not run it against physical
   audio hardware. Real microphone and loopback testing is still required.
