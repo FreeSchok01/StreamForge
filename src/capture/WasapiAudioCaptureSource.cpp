@@ -8,6 +8,7 @@
 #include <audioclient.h>
 #include <ksmedia.h>
 #include <mmdeviceapi.h>
+#include <propsys.h>
 #include <wrl/client.h>
 
 #include <algorithm>
