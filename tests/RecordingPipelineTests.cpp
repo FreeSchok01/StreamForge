@@ -23,7 +23,9 @@ struct State {
     int writes{0};
     bool configureCalled{false}, openCalled{false}, finalized{false}, aborted{false};
     bool failVideoInit{false}, failOpen{false}, failWrite{false};
+    bool failAudioFlush{false};
     bool blockFirstWrite{false}, firstWriteEntered{false}, releaseFirstWrite{false};
+    bool blockAudioEncode{false}, audioEncodeEntered{false}, releaseAudioEncode{false};
 };
 
 EncodedPacket packet(EncodedMediaType type, int index) {
@@ -46,10 +48,19 @@ public:
         : s_(std::move(s)), cb_(std::move(cb)), id_(id) {}
     bool initialize(std::string&) override { return true; }
     bool encode(const AudioFrame&, std::string& e) override {
+        {
+            std::unique_lock lock(s_->mutex);
+            if (s_->blockAudioEncode) {
+                s_->audioEncodeEntered = true;
+                s_->changed.notify_all();
+                s_->changed.wait(lock, [this] { return s_->releaseAudioEncode; });
+            }
+        }
         return cb_(packet(EncodedMediaType::Audio, id_), e);
     }
     bool flush(std::string& e) override {
         ++s_->audioFlush;
+        if (s_->failAudioFlush) { e = "mock audio flush failure"; return false; }
         return cb_(packet(EncodedMediaType::Audio, id_), e);
     }
     bool getStreamDescriptor(EncodedStreamDescriptor& d, std::string&) const override {
@@ -204,6 +215,75 @@ void muxerWriteFailure() {
     check(!p.stop(RecordingStopMode::Graceful,e),"failed stop reported");
 }
 
+
+void stopWaitsForInFlightInput() {
+    Fixture f;
+    f.s->blockAudioEncode = true;
+    RecordingPipeline p(f.factories());
+    std::string startError;
+    check(p.start(f.config(), startError), "in-flight start");
+
+    AudioFrame a;
+    a.sampleRate=48000; a.channels=2; a.frameCount=1; a.samples={0,0};
+
+    std::atomic<bool> submitOk{false};
+    std::string submitError;
+    std::thread submitter([&] {
+        submitOk = p.submitAudioFrame(a, submitError);
+    });
+
+    {
+        std::unique_lock lock(f.s->mutex);
+        check(f.s->changed.wait_for(lock, 1500ms, [&] {
+            return f.s->audioEncodeEntered;
+        }), "audio encode entered");
+    }
+
+    std::atomic<bool> stopDone{false};
+    std::string stopError;
+    std::thread stopper([&] {
+        (void)p.stop(RecordingStopMode::Graceful, stopError);
+        stopDone = true;
+    });
+
+    const auto deadline = std::chrono::steady_clock::now() + 1500ms;
+    while (p.snapshot().acceptsInput &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(1ms);
+    }
+    check(!p.snapshot().acceptsInput, "stop closed input gate");
+    check(!stopDone.load(), "stop waits while accepted encode is active");
+
+    {
+        std::lock_guard lock(f.s->mutex);
+        f.s->releaseAudioEncode = true;
+        f.s->changed.notify_all();
+    }
+
+    submitter.join();
+    stopper.join();
+    check(submitOk.load(), "in-flight submit completed");
+    check(stopDone.load(), "stop completed after input left gate");
+    check(p.snapshot().state == RecordingState::Completed,
+          "in-flight stop finalized cleanly");
+}
+
+void encoderFlushFailure() {
+    Fixture f;
+    f.s->failAudioFlush = true;
+    RecordingPipeline p(f.factories());
+    std::string e;
+    check(p.start(f.config(), e), "flush failure start");
+    check(!p.stop(RecordingStopMode::Graceful, e),
+          "audio flush failure reported");
+    check(p.snapshot().state == RecordingState::Failed,
+          "flush failure state retained");
+    check(f.s->audioShutdown == 1 && f.s->videoShutdown == 1,
+          "both encoders shut down after flush failure");
+    check(f.s->aborted && !f.s->finalized,
+          "muxer aborted after flush failure");
+}
+
 void queueOverflow() {
     Fixture f; f.s->blockFirstWrite=true; RecordingPipeline p(f.factories());
     auto c=f.config(); c.packetQueue.maxPackets=1; std::string e;
@@ -230,7 +310,8 @@ void queueOverflow() {
 
 int main() {
     graceful(); abortRecordingTest(); startupFailure(); muxerOpenFailure();
-    muxerWriteFailure(); queueOverflow();
+    muxerWriteFailure(); stopWaitsForInFlightInput();
+    encoderFlushFailure(); queueOverflow();
     std::cout << "RecordingPipeline lifecycle tests passed.\n";
     return 0;
 }
