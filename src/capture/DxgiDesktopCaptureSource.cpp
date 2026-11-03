@@ -27,6 +27,8 @@ using Microsoft::WRL::ComPtr;
 struct D3D11FrameLease final {
     ComPtr<ID3D11Texture2D> texture;
     ComPtr<ID3D11Device> device;
+    ComPtr<ID3D11DeviceContext> context;
+    std::shared_ptr<std::mutex> contextMutex;
 };
 
 struct StartResult {
@@ -68,6 +70,7 @@ bool copyDesktopFrame(
     std::int64_t timestampNs,
     bool includeCpuReadback,
     bool includeNativeResource,
+    const std::shared_ptr<std::mutex>& contextMutex,
     ComPtr<ID3D11Texture2D>& staging,
     OwnedVideoFrame& output,
     std::string& error) {
@@ -109,12 +112,17 @@ bool copyDesktopFrame(
                     hresultText(nativeResult);
             return false;
         }
-        context->CopyResource(nativeTexture.Get(), source);
+        {
+            std::lock_guard contextLock(*contextMutex);
+            context->CopyResource(nativeTexture.Get(), source);
+        }
 
         try {
             auto lease = std::make_shared<D3D11FrameLease>();
             lease->texture = nativeTexture;
             lease->device = device;
+            lease->context = context;
+            lease->contextMutex = contextMutex;
             output.nativeResourceOwner = std::move(lease);
         } catch (...) {
             output = {};
@@ -126,6 +134,8 @@ bool copyDesktopFrame(
         output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
         output.nativeResource = lease->texture.Get();
         output.nativeDevice = lease->device.Get();
+        output.nativeContext = lease->context.Get();
+        output.nativeContextMutex = lease->contextMutex;
     }
 
     if (includeCpuReadback) {
@@ -156,6 +166,7 @@ bool copyDesktopFrame(
             }
         }
 
+        std::lock_guard contextLock(*contextMutex);
         context->CopyResource(staging.Get(), source);
         D3D11_MAPPED_SUBRESOURCE mapped{};
         const HRESULT mapResult =
@@ -253,6 +264,7 @@ struct DxgiDesktopCaptureSource::Impl final {
         ComPtr<ID3D11DeviceContext> context;
         ComPtr<IDXGIOutputDuplication> duplication;
         ComPtr<ID3D11Texture2D> staging;
+        std::shared_ptr<std::mutex> contextMutex;
 
         auto cleanup = [&] {
             staging.Reset();
@@ -321,6 +333,8 @@ struct DxgiDesktopCaptureSource::Impl final {
                     hresultText(hr);
                 setError(message); publishStartup({false, message}); cleanup(); return;
             }
+
+            contextMutex = std::make_shared<std::mutex>();
 
             hr = output1->DuplicateOutput(device.Get(), &duplication);
             if (FAILED(hr)) {
@@ -424,7 +438,7 @@ struct DxgiDesktopCaptureSource::Impl final {
                 if (!copyDesktopFrame(
                         device.Get(), context.Get(), sourceTexture.Get(),
                         timestampNs, config.includeCpuReadback, config.includeNativeResource,
-                        staging, frame, copyError)) {
+                        contextMutex, staging, frame, copyError)) {
                     setError(copyError.empty()
                         ? "DXGI-Frame konnte nicht kopiert werden." : copyError);
                     break;
