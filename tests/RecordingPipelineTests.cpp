@@ -338,6 +338,19 @@ void nativeVideoResourceLifetime() {
     check(view.nativeDevice == view.nativeResource,
           "video input view retains native device handle");
     check(view.isValid(), "native video input view remains valid");
+
+    auto nativeOnlyOwner = std::make_shared<int>(7);
+    OwnedVideoFrame nativeOnly;
+    nativeOnly.width = 2;
+    nativeOnly.height = 2;
+    nativeOnly.pixelFormat = PixelFormat::BGRA8;
+    nativeOnly.timebase = {1, 30};
+    nativeOnly.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+    nativeOnly.nativeResource = nativeOnlyOwner.get();
+    nativeOnly.nativeDevice = nativeOnlyOwner.get();
+    nativeOnly.nativeResourceOwner = nativeOnlyOwner;
+    check(nativeOnly.isValid(), "native-only owned frame is valid without CPU planes");
+    check(nativeOnly.view().isValid(), "native-only input view is valid without CPU planes");
 }
 
 void dispatcherNormalStop() {
