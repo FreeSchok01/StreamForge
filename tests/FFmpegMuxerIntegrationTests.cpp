@@ -120,6 +120,27 @@ int main() {
     }
     check(foundAac, "recording contains AAC audio");
     check(foundH264, "recording contains H.264 video");
+    std::vector<std::int64_t> lastDts(input->nb_streams, AV_NOPTS_VALUE);
+    std::vector<int> packetCounts(input->nb_streams, 0);
+    AVPacket* packet = av_packet_alloc();
+    check(packet != nullptr, "allocate packet for mux validation");
+    int readResult = 0;
+    while ((readResult = av_read_frame(input, packet)) >= 0) {
+        const auto streamIndex = static_cast<std::size_t>(packet->stream_index);
+        check(streamIndex < lastDts.size(), "packet references a valid stream");
+        if (packet->dts != AV_NOPTS_VALUE) {
+            check(lastDts[streamIndex] == AV_NOPTS_VALUE ||
+                      packet->dts >= lastDts[streamIndex],
+                  "packet DTS is monotonic within each stream");
+            lastDts[streamIndex] = packet->dts;
+        }
+        ++packetCounts[streamIndex];
+        av_packet_unref(packet);
+    }
+    check(readResult == AVERROR_EOF, "read packets through end of recording");
+    av_packet_free(&packet);
+    check(packetCounts.size() == 2 && packetCounts[0] > 0 && packetCounts[1] > 0,
+          "recording contains muxed packets for both streams");
     avformat_close_input(&input);
 
     std::filesystem::remove(path, fsError);
