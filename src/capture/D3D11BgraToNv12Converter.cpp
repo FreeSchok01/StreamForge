@@ -9,6 +9,7 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 
+#include <mutex>
 #include <utility>
 
 namespace streamforge {
@@ -16,11 +17,39 @@ namespace {
 
 using Microsoft::WRL::ComPtr;
 
+struct Nv12TexturePool final {
+    std::mutex mutex;
+    std::vector<ComPtr<ID3D11Texture2D>> available;
+
+    bool acquire(ComPtr<ID3D11Texture2D>& texture) {
+        std::lock_guard lock(mutex);
+        if (available.empty()) return false;
+        texture = std::move(available.back());
+        available.pop_back();
+        return true;
+    }
+
+    void recycle(ComPtr<ID3D11Texture2D> texture) noexcept {
+        if (!texture) return;
+        try {
+            std::lock_guard lock(mutex);
+            available.push_back(std::move(texture));
+        } catch (...) {
+            // Releasing the texture is a safe fallback if the free-list cannot grow.
+        }
+    }
+};
+
 struct Nv12FrameLease final {
     ComPtr<ID3D11Texture2D> texture;
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
     std::shared_ptr<std::recursive_mutex> contextMutex;
+    std::shared_ptr<Nv12TexturePool> pool;
+
+    ~Nv12FrameLease() {
+        if (pool && texture) pool->recycle(std::move(texture));
+    }
 };
 
 std::string hresultText(HRESULT result) {
@@ -52,6 +81,7 @@ struct D3D11BgraToNv12Converter::Impl final {
     ComPtr<ID3D11VideoProcessorEnumerator> enumerator;
     ComPtr<ID3D11VideoProcessor> processor;
     std::shared_ptr<std::recursive_mutex> contextMutex;
+    std::shared_ptr<Nv12TexturePool> texturePool;
     std::uint32_t width{0};
     std::uint32_t height{0};
     bool initialized{false};
@@ -64,6 +94,7 @@ struct D3D11BgraToNv12Converter::Impl final {
         context.Reset();
         device.Reset();
         contextMutex.reset();
+        texturePool.reset();
         width = 0;
         height = 0;
         initialized = false;
@@ -162,6 +193,13 @@ bool D3D11BgraToNv12Converter::initialize(
     m_impl->device = device;
     m_impl->context = context;
     m_impl->contextMutex = firstFrame.nativeContextMutex;
+    try {
+        m_impl->texturePool = std::make_shared<Nv12TexturePool>();
+    } catch (...) {
+        error = "NV12-Texturpool konnte nicht erstellt werden.";
+        m_impl->reset();
+        return false;
+    }
     m_impl->width = static_cast<std::uint32_t>(firstFrame.width);
     m_impl->height = static_cast<std::uint32_t>(firstFrame.height);
     m_impl->initialized = true;
@@ -217,13 +255,16 @@ bool D3D11BgraToNv12Converter::convert(
     outputDesc.MiscFlags = 0;
 
     ComPtr<ID3D11Texture2D> outputTexture;
-    HRESULT hr = m_impl->device->CreateTexture2D(
-        &outputDesc, nullptr, &outputTexture);
-    if (FAILED(hr)) {
-        error = "D3D11-NV12-Ausgabetextur konnte nicht erstellt werden: " +
-                hresultText(hr);
-        return false;
+    if (!m_impl->texturePool->acquire(outputTexture)) {
+        const HRESULT createResult = m_impl->device->CreateTexture2D(
+            &outputDesc, nullptr, &outputTexture);
+        if (FAILED(createResult)) {
+            error = "D3D11-NV12-Ausgabetextur konnte nicht erstellt werden: " +
+                    hresultText(createResult);
+            return false;
+        }
     }
+    HRESULT hr = S_OK;
 
     D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC inputViewDesc{};
     // Zero asks D3D11 to use the texture's DXGI format. This is the
@@ -289,10 +330,11 @@ bool D3D11BgraToNv12Converter::convert(
 
     try {
         auto lease = std::make_shared<Nv12FrameLease>();
-        lease->texture = outputTexture;
+        lease->texture = std::move(outputTexture);
         lease->device = m_impl->device;
         lease->context = m_impl->context;
         lease->contextMutex = m_impl->contextMutex;
+        lease->pool = m_impl->texturePool;
 
         output = {};
         output.width = static_cast<std::int32_t>(m_impl->width);
