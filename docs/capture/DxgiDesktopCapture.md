@@ -37,18 +37,27 @@ access across the capture and consumer workers; D3D11 immediate contexts must
 not be used concurrently from multiple threads. The lease does not grant
 exclusive ownership of the context.
 
-## D3D11 BGRA-to-NV12 capability probe
+## D3D11 BGRA-to-NV12 conversion
 
-`queryD3D11BgraToNv12Capabilities()` checks the video processor exposed by a
-D3D11 device for BGRA8 input and NV12 output at the requested dimensions and
-frame rate. It reports whether the device exposes the video processor and
-whether each format is supported in the required direction.
+`queryD3D11BgraToNv12Capabilities()` checks whether the selected D3D11 device
+supports BGRA8 video-processor input and NV12 output for the requested
+dimensions and frame rate.
 
-This is a capability preflight only. It does not allocate input/output views,
-create an NV12 surface, execute a video-processor blit, or connect the result to
-FFmpeg/NVENC. A successful probe is not a guarantee that a complete encoder
-submission path is available; device identity, resource sharing, synchronization
-and the encoder's accepted hardware-frame context still need to match.
+`D3D11BgraToNv12Converter` now performs the conversion on that same device:
+it creates a video-processor input view for the retained BGRA texture, an
+NV12 output texture with render-target/video-encoder binding, an output view,
+and submits `VideoProcessorBlt`. The output is a native-only
+`OwnedVideoFrame` with `PixelFormat::NV12`; its lease retains the output
+texture, device, immediate context and shared context mutex. No CPU readback is
+performed by this conversion stage.
+
+The current implementation is a first functional path, not yet a production
+optimized one: it allocates an NV12 output texture and views for each converted
+frame, uses progressive SDR BT.709 with studio-range NV12 output, and does not
+pool surfaces or expose configurable colorimetry. The FFmpeg/NVENC adapter
+still rejects native-only frames; the D3D11 NV12 output is not yet attached to
+an FFmpeg `AVHWFramesContext` or submitted to NVENC. Device/driver runtime
+validation is still required.
 
 ## Connecting to the recording dispatcher
 
