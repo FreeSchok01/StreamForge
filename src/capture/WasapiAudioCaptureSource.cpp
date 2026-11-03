@@ -143,16 +143,16 @@ public:
         return S_OK;
     }
 
+    void disableNotifications() noexcept {
+        std::lock_guard lock(m_eventMutex);
+        m_eventHandle = nullptr;
+    }
+
 private:
     ~WasapiDeviceNotificationClient() = default;
 
     bool matches(LPCWSTR deviceId) const noexcept {
         return deviceId && !m_usesDefault && m_selectedId == deviceId;
-    }
-
-    void disableNotifications() noexcept {
-        std::lock_guard lock(m_eventMutex);
-        m_eventHandle = nullptr;
     }
 
     void notify() noexcept {
