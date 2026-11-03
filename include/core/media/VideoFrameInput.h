@@ -35,11 +35,14 @@ struct VideoFrameInput {
     [[nodiscard]] bool isValid() const noexcept {
         if (width <= 0 || height <= 0 || !timebase.isValid()) return false;
 
+        const bool nativeFormatSupported =
+            pixelFormat == PixelFormat::BGRA8 ||
+            (pixelFormat == PixelFormat::NV12 &&
+             (width % 2) == 0 && (height % 2) == 0);
         const bool hasNativeResource =
             nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
-            pixelFormat == PixelFormat::BGRA8 &&
-            nativeResource && nativeDevice && nativeContext &&
-            nativeContextMutex && nativeResourceOwner;
+            nativeFormatSupported && nativeResource && nativeDevice &&
+            nativeContext && nativeContextMutex && nativeResourceOwner;
         const bool hasNoNativeResource =
             nativeResourceType == NativeVideoResourceType::None &&
             !nativeResource && !nativeDevice && !nativeContext &&
