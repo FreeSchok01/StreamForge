@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 
 namespace streamforge {
 
@@ -17,6 +18,9 @@ struct VideoFrameInput {
     std::int64_t pts{kNoTimestamp};
     std::int64_t timestampNs{kNoTimestamp};
     MediaTimebase timebase{};
+    NativeVideoResourceType nativeResourceType{NativeVideoResourceType::None};
+    void* nativeResource{nullptr};
+    std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
         if (!data[0] || width <= 0 || height <= 0 || linesize[0] <= 0 ||
