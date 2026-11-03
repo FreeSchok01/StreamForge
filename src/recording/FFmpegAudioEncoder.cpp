@@ -497,7 +497,26 @@ bool FFmpegAudioEncoder::encode(const AudioFrame& frame, std::string& error) {
         return false;
     }
 
+    if (frame.timestampNs == kNoTimestamp) {
+        error = "Audioframe benötigt einen gültigen Capture-Zeitstempel.";
+        m_impl->state = Impl::State::Failed;
+        return false;
+    }
     if (!m_impl->hasTimestamp) {
+        if (m_impl->config.timestampOriginNs != kNoTimestamp) {
+            if (frame.timestampNs < m_impl->config.timestampOriginNs) {
+                error = "Audioframe liegt vor dem gemeinsamen Session-Zeitursprung.";
+                m_impl->state = Impl::State::Failed;
+                return false;
+            }
+            m_impl->nextPts = av_rescale_q(
+                frame.timestampNs - m_impl->config.timestampOriginNs,
+                AVRational{1, 1'000'000'000},
+                AVRational{1, m_impl->codec->sample_rate});
+        } else {
+            m_impl->config.timestampOriginNs = frame.timestampNs;
+            m_impl->nextPts = 0;
+        }
         m_impl->expectedTimestampNs = frame.timestampNs;
         m_impl->hasTimestamp = true;
     } else {
