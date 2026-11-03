@@ -12,6 +12,20 @@ if(BUILD_TESTING AND STREAMFORGE_BUILD_RECORDING_PIPELINE_TESTS)
     add_subdirectory(tests)
 endif()
 
+if(WIN32)
+    add_library(streamforge_wasapi_capture
+        src/capture/WasapiAudioCaptureSource.cpp
+        src/capture/WasapiAudioCaptureSource.h
+    )
+    target_compile_features(streamforge_wasapi_capture PUBLIC cxx_std_20)
+    target_include_directories(streamforge_wasapi_capture
+        PUBLIC ${PROJECT_SOURCE_DIR}/include
+        PRIVATE ${PROJECT_SOURCE_DIR}/src/capture
+    )
+    target_link_libraries(streamforge_wasapi_capture PRIVATE ole32 uuid)
+    target_compile_options(streamforge_wasapi_capture PRIVATE /W4 /permissive-)
+endif()
+
 if(STREAMFORGE_WITH_FFMPEG)
     find_package(Threads REQUIRED)
     find_package(PkgConfig REQUIRED)
