@@ -58,6 +58,8 @@ struct FFmpegVideoEncoder::Impl final {
     State state{State::Empty};
     std::int64_t nextFallbackPts{0};
     std::int64_t lastInputPts{AV_NOPTS_VALUE};
+    std::int64_t timestampOriginNs{kNoTimestamp};
+    bool hasTimestampOrigin{false};
 
     Impl(VideoEncoderConfig c, EncodedPacketCallback cb, std::int32_t index)
         : config(std::move(c)), callback(std::move(cb)), streamIndex(index) {}
@@ -305,7 +307,22 @@ bool FFmpegVideoEncoder::encode(const VideoFrameInput& input, std::string& error
     }
 
     std::int64_t pts = m_impl->nextFallbackPts;
-    if (input.pts != kNoTimestamp) {
+    if (input.timestampNs != kNoTimestamp) {
+        if (!m_impl->hasTimestampOrigin) {
+            m_impl->timestampOriginNs =
+                m_impl->config.timestampOriginNs != kNoTimestamp
+                    ? m_impl->config.timestampOriginNs : input.timestampNs;
+            m_impl->hasTimestampOrigin = true;
+        }
+        if (input.timestampNs < m_impl->timestampOriginNs) {
+            error = "Videoframe liegt vor dem gemeinsamen Session-Zeitursprung.";
+            m_impl->state = Impl::State::Failed;
+            return false;
+        }
+        pts = av_rescale_q(
+            input.timestampNs - m_impl->timestampOriginNs,
+            AVRational{1, 1'000'000'000}, m_impl->codec->time_base);
+    } else if (input.pts != kNoTimestamp) {
         pts = av_rescale_q(input.pts,
                            AVRational{input.timebase.numerator, input.timebase.denominator},
                            m_impl->codec->time_base);
