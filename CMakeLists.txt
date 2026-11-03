@@ -13,6 +13,7 @@ if(BUILD_TESTING AND STREAMFORGE_BUILD_RECORDING_PIPELINE_TESTS)
 endif()
 
 if(STREAMFORGE_WITH_FFMPEG)
+    find_package(Threads REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
         libavformat
