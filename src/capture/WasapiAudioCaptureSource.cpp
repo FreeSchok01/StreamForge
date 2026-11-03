@@ -307,6 +307,7 @@ struct WasapiAudioCaptureSource::Impl final {
             WAVEFORMATEX* mixFormat = nullptr;
             hr = audioClient->GetMixFormat(&mixFormat);
             if (FAILED(hr) || !mixFormat) {
+                if (mixFormat) CoTaskMemFree(mixFormat);
                 const std::string message =
                     "WASAPI-Mix-Format konnte nicht gelesen werden: " + hresultText(hr);
                 setError(message);
