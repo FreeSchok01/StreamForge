@@ -34,6 +34,19 @@ the capture worker's immediate context. Consumers must use a context they own
 or externally serialize immediate-context access; D3D11 immediate contexts
 must not be used concurrently from multiple threads.
 
+## D3D11 BGRA-to-NV12 capability probe
+
+`queryD3D11BgraToNv12Capabilities()` checks the video processor exposed by a
+D3D11 device for BGRA8 input and NV12 output at the requested dimensions and
+frame rate. It reports whether the device exposes the video processor and
+whether each format is supported in the required direction.
+
+This is a capability preflight only. It does not allocate input/output views,
+create an NV12 surface, execute a video-processor blit, or connect the result to
+FFmpeg/NVENC. A successful probe is not a guarantee that a complete encoder
+submission path is available; device identity, resource sharing, synchronization
+and the encoder's accepted hardware-frame context still need to match.
+
 ## Connecting to the recording dispatcher
 
 Start the pipeline and dispatcher before starting capture:
