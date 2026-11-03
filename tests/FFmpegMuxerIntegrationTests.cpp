@@ -52,6 +52,7 @@ int main() {
     config.video.lowLatency = true;
     config.video.allowBFrames = false;
 
+    config.timestampOriginNs = 1'000'000'000;
     config.output.outputPath = path.string();
     config.output.container = RecordingContainer::Matroska;
     config.output.overwriteExisting = true;
@@ -70,8 +71,8 @@ int main() {
         audio.sampleRate = 48000;
         audio.channels = 2;
         audio.frameCount = audioFrameCount;
-        audio.timestampNs = static_cast<std::int64_t>(index) *
-                            audioFrameDurationNs;
+        audio.timestampNs = config.timestampOriginNs +
+            static_cast<std::int64_t>(index) * audioFrameDurationNs;
         audio.samples.assign(
             static_cast<std::size_t>(audioFrameCount) * 2U, 0.0F);
         check(pipeline.submitAudioFrame(audio, error),
@@ -90,7 +91,8 @@ int main() {
         video.width = config.video.width;
         video.height = config.video.height;
         video.pixelFormat = PixelFormat::BGRA8;
-        video.pts = index;
+        video.timestampNs = config.timestampOriginNs +
+            static_cast<std::int64_t>(index) * 33'333'333;
         video.timebase = {1, 30};
         check(pipeline.submitVideoFrame(video, error),
               "submit real video frame: " + error);
