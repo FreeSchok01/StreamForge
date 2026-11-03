@@ -14,9 +14,10 @@ Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
 the shared session clock. `VideoFrameInput` carries the native resource type,
 D3D11 texture pointer, its owning D3D11 device pointer and a shared lifetime
-owner that retains both COM objects. The current FFmpeg
-software encoder ignores this native resource and consumes the CPU pixels; this
-is not yet a zero-copy encoding path.
+owner that retains both COM objects. The media frame contract also permits a D3D11 BGRA frame with no CPU planes,
+so a future GPU encoder can avoid readback. The current FFmpeg software encoder
+explicitly rejects native-only frames and consumes CPU pixels when provided;
+this is not yet a zero-copy encoding path.
 The lease keeps both COM objects alive, but it does not transfer ownership of
 the capture worker's immediate context. Consumers must use a context they own
 or externally serialize immediate-context access; D3D11 immediate contexts
