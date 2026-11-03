@@ -12,6 +12,7 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 - Input/callback admission gates, graceful finalization, abort and error propagation.
 - FFmpeg audio encoder with persistent resampling and sample FIFO.
 - FFmpeg software video encoder with pixel-format conversion.
+- FFmpeg NVIDIA NVENC backend for H.264, HEVC and AV1 when supported by the installed FFmpeg build and GPU.
 - FFmpeg Matroska/MP4 muxer adapter.
 - Mock-based lifecycle tests and a real AAC + H.264 Matroska end-to-end test.
 
@@ -22,8 +23,8 @@ BGRA texture and its D3D11 device in a shared COM lifetime lease alongside
 the CPU staging-readback frame, so future GPU consumers can access both safely
 across the dispatcher handoff.
 The media frame contract also accepts native-only D3D11 BGRA frames for future
-GPU encoders, while the current FFmpeg software encoder explicitly requires CPU
-pixels. Direct GPU encoding, hardware encoder adapters, desktop UI and Twitch
+GPU encoders. The initial NVENC adapter performs hardware compression from CPU
+frames; direct D3D11 texture import is not implemented yet. Direct GPU encoding, hardware encoder adapters, desktop UI and Twitch
 output are not yet implemented.
 
 ## Build: core lifecycle tests
