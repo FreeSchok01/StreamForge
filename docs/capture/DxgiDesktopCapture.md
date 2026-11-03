@@ -10,6 +10,14 @@ D3D11 default-usage texture retained through a shared native-resource lease.
 The lease survives `IDXGIOutputDuplication::ReleaseFrame()` and the dispatcher
 queue handoff, allowing a future GPU consumer to access the texture safely.
 
+`VideoCaptureConfig::includeCpuReadback` defaults to `true` for compatibility
+with the current FFmpeg CPU-input path. When set to `false`, DXGI skips staging
+texture creation, GPU-to-CPU readback, mapping and CPU pixel allocation; the
+callback receives a native-only BGRA D3D11 frame with its shared texture/device
+lease. This mode is suitable only when every downstream consumer accepts the
+native D3D11 resource. The current FFmpeg encoder does not, so keep the default
+for the existing FFmpeg recording session.
+
 Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
 the shared session clock. `VideoFrameInput` carries the native resource type,
@@ -55,8 +63,10 @@ before finalizing the recording.
 
 ## Limitations
 
-- CPU staging readback still occurs on every frame for the software encoder.
-  The additional retained D3D11 texture is a GPU copy, not zero-copy capture.
+- CPU staging readback occurs by default for the existing FFmpeg encoder path.
+  It can be disabled for a future/native GPU consumer using
+  `VideoCaptureConfig::includeCpuReadback = false`; such a consumer must accept
+  native-only D3D11 frames. The retained texture is a GPU copy, not zero-copy capture.
 - On `DXGI_ERROR_ACCESS_LOST`, duplication is recreated against the existing
   adapter/output with up to 20 retries at 250 ms intervals. Full adapter/output
   re-enumeration after topology changes is not implemented.
