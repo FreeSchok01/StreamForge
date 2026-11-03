@@ -1,4 +1,5 @@
 #include "RecordingPipeline.h"
+#include "RecordingInputDispatcher.h"
 
 #include <atomic>
 #include <chrono>
@@ -26,6 +27,7 @@ struct State {
     bool failAudioFlush{false};
     bool blockFirstWrite{false}, firstWriteEntered{false}, releaseFirstWrite{false};
     bool blockAudioEncode{false}, audioEncodeEntered{false}, releaseAudioEncode{false};
+    bool blockVideoEncode{false}, videoEncodeEntered{false}, releaseVideoEncode{false};
 };
 
 EncodedPacket packet(EncodedMediaType type, int index) {
@@ -85,6 +87,14 @@ public:
         return true;
     }
     bool encode(const VideoFrameInput&, std::string& e) override {
+        {
+            std::unique_lock lock(s_->mutex);
+            if (s_->blockVideoEncode) {
+                s_->videoEncodeEntered = true;
+                s_->changed.notify_all();
+                s_->changed.wait(lock, [this] { return s_->releaseVideoEncode; });
+            }
+        }
         return cb_(packet(EncodedMediaType::Video, id_), e);
     }
     bool flush(std::string& e) override {
@@ -284,6 +294,128 @@ void encoderFlushFailure() {
           "muxer aborted after flush failure");
 }
 
+
+AudioFrame makeAudioFrame() {
+    AudioFrame frame;
+    frame.sampleRate = 48000;
+    frame.channels = 2;
+    frame.frameCount = 1;
+    frame.samples = {0.0F, 0.0F};
+    frame.timestampNs = 0;
+    return frame;
+}
+
+OwnedVideoFrame makeOwnedVideoFrame() {
+    OwnedVideoFrame frame;
+    frame.width = 2;
+    frame.height = 2;
+    frame.pixelFormat = PixelFormat::BGRA8;
+    frame.linesize[0] = 8;
+    frame.planes[0].assign(16, 0);
+    frame.timebase = {1, 30};
+    return frame;
+}
+
+void dispatcherNormalStop() {
+    Fixture f;
+    RecordingPipeline pipeline(f.factories());
+    std::string error;
+    auto config = f.config();
+    config.packetQueue.maxPackets = 128;
+    config.packetQueue.maxBytes = 4096;
+    check(pipeline.start(config, error), "dispatcher pipeline start");
+
+    RecordingInputDispatcher dispatcher(pipeline);
+    check(dispatcher.start(error), "dispatcher start");
+    check(dispatcher.trySubmitAudio(makeAudioFrame()), "dispatcher audio submit");
+    check(dispatcher.trySubmitVideo(makeOwnedVideoFrame()), "dispatcher video submit");
+    check(dispatcher.stop(RecordingStopMode::Graceful, error), "dispatcher graceful stop");
+    check(pipeline.snapshot().state == RecordingState::Completed,
+          "dispatcher completed recording");
+    check(f.s->finalized && !f.s->aborted, "dispatcher finalized muxer");
+}
+
+void dispatcherAudioOverflow() {
+    Fixture f;
+    f.s->blockAudioEncode = true;
+    RecordingPipeline pipeline(f.factories());
+    std::string error;
+    auto config = f.config();
+    check(pipeline.start(config, error), "audio overflow pipeline start");
+
+    RecordingInputDispatcher dispatcher(pipeline);
+    check(dispatcher.start(error), "audio overflow dispatcher start");
+    check(dispatcher.trySubmitAudio(makeAudioFrame()), "first audio frame queued");
+
+    {
+        std::unique_lock lock(f.s->mutex);
+        check(f.s->changed.wait_for(lock, 1500ms, [&] {
+            return f.s->audioEncodeEntered;
+        }), "audio worker entered blocking encoder");
+    }
+
+    for (int index = 0; index < 127; ++index) {
+        check(dispatcher.trySubmitAudio(makeAudioFrame()),
+              "fill bounded audio queue");
+    }
+    check(!dispatcher.trySubmitAudio(makeAudioFrame()),
+          "audio queue overflow is rejected");
+    check(dispatcher.snapshot().audioQueueOverflows == 1,
+          "audio overflow counter incremented");
+
+    {
+        std::lock_guard lock(f.s->mutex);
+        f.s->releaseAudioEncode = true;
+        f.s->changed.notify_all();
+    }
+    check(!dispatcher.stop(RecordingStopMode::Graceful, error),
+          "audio overflow forces dispatcher failure");
+    check(pipeline.snapshot().state == RecordingState::Aborted,
+          "audio overflow aborts recording");
+}
+
+void dispatcherVideoDropPolicy() {
+    Fixture f;
+    f.s->blockVideoEncode = true;
+    RecordingPipeline pipeline(f.factories());
+    std::string error;
+    auto config = f.config();
+    config.packetQueue.maxPackets = 128;
+    config.packetQueue.maxBytes = 4096;
+    check(pipeline.start(config, error), "video drop pipeline start");
+
+    RecordingInputDispatcher dispatcher(pipeline);
+    check(dispatcher.start(error), "video drop dispatcher start");
+    check(dispatcher.trySubmitVideo(makeOwnedVideoFrame()),
+          "first video frame queued");
+
+    {
+        std::unique_lock lock(f.s->mutex);
+        check(f.s->changed.wait_for(lock, 1500ms, [&] {
+            return f.s->videoEncodeEntered;
+        }), "video worker entered blocking encoder");
+    }
+
+    for (int index = 0; index < 31; ++index) {
+        check(dispatcher.trySubmitVideo(makeOwnedVideoFrame()),
+              "fill bounded video queue");
+    }
+    check(!dispatcher.trySubmitVideo(makeOwnedVideoFrame()),
+          "video queue applies drop-newest policy");
+    check(dispatcher.snapshot().droppedVideoFrames == 1,
+          "video drop counter incremented");
+
+    {
+        std::lock_guard lock(f.s->mutex);
+        f.s->releaseVideoEncode = true;
+        f.s->changed.notify_all();
+    }
+    check(dispatcher.stop(RecordingStopMode::Graceful, error),
+          "video drop does not fail recording");
+    check(pipeline.snapshot().state == RecordingState::Completed,
+          "video drop policy preserves recording");
+}
+
 void queueOverflow() {
     Fixture f; f.s->blockFirstWrite=true; RecordingPipeline p(f.factories());
     auto c=f.config(); c.packetQueue.maxPackets=1; std::string e;
@@ -311,7 +443,8 @@ void queueOverflow() {
 int main() {
     graceful(); abortRecordingTest(); startupFailure(); muxerOpenFailure();
     muxerWriteFailure(); stopWaitsForInFlightInput();
-    encoderFlushFailure(); queueOverflow();
+    encoderFlushFailure(); dispatcherNormalStop(); dispatcherAudioOverflow();
+    dispatcherVideoDropPolicy(); queueOverflow();
     std::cout << "RecordingPipeline lifecycle tests passed.\n";
     return 0;
 }
