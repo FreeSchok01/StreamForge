@@ -101,7 +101,7 @@ bool copyDesktopFrame(
         // This is a GPU copy, not zero-copy capture.
         D3D11_TEXTURE2D_DESC nativeDesc = sourceDesc;
         nativeDesc.Usage = D3D11_USAGE_DEFAULT;
-        nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
         nativeDesc.CPUAccessFlags = 0;
         nativeDesc.MiscFlags = 0;
         ComPtr<ID3D11Texture2D> nativeTexture;
