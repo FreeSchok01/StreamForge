@@ -4,17 +4,20 @@
 
 `DxgiDesktopCaptureSource` captures a selected DXGI output using
 `IDXGIOutputDuplication`. The caller selects an adapter and output index.
-Frames are acquired on a dedicated worker thread. Each frame is copied both to
-owned BGRA8 CPU memory using a D3D11 staging texture and to a separate
+Frames are acquired on a dedicated worker thread. By default, each frame is
+copied to owned BGRA8 CPU memory using a D3D11 staging texture and to a separate
 D3D11 default-usage texture retained through a shared native-resource lease.
-The lease survives `IDXGIOutputDuplication::ReleaseFrame()` and the dispatcher
+`VideoCaptureConfig::includeCpuReadback` and `includeNativeResource` independently
+control those outputs; at least one must be enabled. The lease survives `IDXGIOutputDuplication::ReleaseFrame()` and the dispatcher
 queue handoff, allowing a future GPU consumer to access the texture safely.
 
 `VideoCaptureConfig::includeCpuReadback` defaults to `true` for compatibility
-with the current FFmpeg CPU-input path. When set to `false`, DXGI skips staging
-texture creation, GPU-to-CPU readback, mapping and CPU pixel allocation; the
-callback receives a native-only BGRA D3D11 frame with its shared texture/device
-lease. This mode is suitable only when every downstream consumer accepts the
+with the current FFmpeg CPU-input path. When set to `false` while
+`includeNativeResource` remains enabled, DXGI skips staging texture creation,
+GPU-to-CPU readback, mapping and CPU pixel allocation; the callback receives a
+native-only BGRA D3D11 frame with its shared texture/device lease. Setting
+`includeNativeResource=false` avoids the extra GPU texture allocation/copy when
+no native GPU consumer is attached. This mode is suitable only when every downstream consumer accepts the
 native D3D11 resource. The current FFmpeg encoder does not, so keep the default
 for the existing FFmpeg recording session.
 
@@ -64,9 +67,10 @@ before finalizing the recording.
 ## Limitations
 
 - CPU staging readback occurs by default for the existing FFmpeg encoder path.
-  It can be disabled for a future/native GPU consumer using
-  `VideoCaptureConfig::includeCpuReadback = false`; such a consumer must accept
-  native-only D3D11 frames. The retained texture is a GPU copy, not zero-copy capture.
+  Native D3D11 retention can independently be disabled with
+  `VideoCaptureConfig::includeNativeResource = false` to avoid an unused GPU copy.
+  For a native GPU consumer, disable CPU readback while keeping native-resource
+  retention enabled. The retained texture is a GPU copy, not zero-copy capture.
 - On `DXGI_ERROR_ACCESS_LOST`, duplication is recreated against the existing
   adapter/output with up to 20 retries at 250 ms intervals. Full adapter/output
   re-enumeration after topology changes is not implemented.
