@@ -21,6 +21,7 @@ struct VideoFrameInput {
     MediaTimebase timebase{};
     NativeVideoResourceType nativeResourceType{NativeVideoResourceType::None};
     void* nativeResource{nullptr};
+    void* nativeDevice{nullptr};
     std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
@@ -29,9 +30,9 @@ struct VideoFrameInput {
             return false;
         }
         if (nativeResourceType == NativeVideoResourceType::None) {
-            if (nativeResource || nativeResourceOwner) return false;
+            if (nativeResource || nativeDevice || nativeResourceOwner) return false;
         } else if (nativeResourceType == NativeVideoResourceType::D3D11Texture2D) {
-            if (!nativeResource || !nativeResourceOwner) return false;
+            if (!nativeResource || !nativeDevice || !nativeResourceOwner) return false;
         } else {
             return false;
         }
