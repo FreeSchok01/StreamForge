@@ -15,9 +15,9 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 - FFmpeg Matroska/MP4 muxer adapter.
 - Mock-based lifecycle tests and a real AAC + H.264 Matroska end-to-end test.
 
-WASAPI microphone/loopback and DXGI desktop capture are implemented as
-Windows-only sources and are coordinated by a Windows recording-session
-controller. DXGI currently uses CPU staging readback; GPU-native texture
+WASAPI microphone/loopback capture, active endpoint enumeration and DXGI
+desktop capture are implemented as Windows-only sources and are coordinated
+by a Windows recording-session controller. DXGI currently uses CPU staging readback; GPU-native texture
 handoff, hardware encoder adapters, desktop UI and Twitch output are not yet
 implemented.
 
