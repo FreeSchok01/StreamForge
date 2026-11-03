@@ -6,7 +6,6 @@
 
 #include <wrl/client.h>
 
-#include <limits>
 
 namespace streamforge {
 namespace {
@@ -36,11 +35,7 @@ bool queryD3D11BgraToNv12Capabilities(
     std::string& error) {
     capabilities = {};
     if (!device || width == 0 || height == 0 ||
-        width > static_cast<std::uint32_t>(std::numeric_limits<UINT>::max()) ||
-        height > static_cast<std::uint32_t>(std::numeric_limits<UINT>::max()) ||
-        fpsNumerator == 0 || fpsDenominator == 0 ||
-        fpsNumerator > static_cast<std::uint32_t>(std::numeric_limits<UINT>::max()) ||
-        fpsDenominator > static_cast<std::uint32_t>(std::numeric_limits<UINT>::max())) {
+        fpsNumerator == 0 || fpsDenominator == 0) {
         error = "D3D11-VideoProcessor benötigt ein gültiges Gerät, Bildmaß und Framerate.";
         return false;
     }
