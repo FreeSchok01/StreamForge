@@ -258,6 +258,11 @@ bool D3D11BgraToNv12Converter::convert(
 
     {
         std::lock_guard contextLock(*m_impl->contextMutex);
+        m_impl->videoContext->VideoProcessorSetStreamFrameFormat(
+            m_impl->processor.Get(), 0, D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE);
+        m_impl->videoContext->VideoProcessorSetStreamAutoProcessingMode(
+            m_impl->processor.Get(), 0, FALSE);
+
         D3D11_VIDEO_PROCESSOR_COLOR_SPACE inputColorSpace{};
         inputColorSpace.RGB_Range = 0; // Full-range RGB input.
         inputColorSpace.YCbCr_Matrix = 1; // BT.709 matrix.
