@@ -59,6 +59,7 @@ if(STREAMFORGE_WITH_FFMPEG)
         target_link_libraries(streamforge_ffmpeg_muxer_tests PRIVATE
             streamforge_ffmpeg_muxer
             PkgConfig::FFMPEG
+            Threads::Threads
         )
         add_test(NAME ffmpeg_muxer_matroska_integration
                  COMMAND streamforge_ffmpeg_muxer_tests)
