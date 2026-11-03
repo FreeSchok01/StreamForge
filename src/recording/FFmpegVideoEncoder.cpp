@@ -187,7 +187,7 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
         config.bitrate <= 0 || config.maxBitrate < config.bitrate ||
         config.keyframeInterval <= 0 ||
         config.rateControl == VideoRateControl::CQP) {
-        error = "Ungültige Videencoder-Konfiguration.";
+        error = "Ungültige Videoencoder-Konfiguration.";
         m_impl->state = Impl::State::Failed;
         return false;
     }
@@ -325,7 +325,7 @@ bool FFmpegVideoEncoder::encode(const VideoFrameInput& input, std::string& error
          (input.pixelFormat == PixelFormat::NV12 && input.data[1]) ||
          (input.pixelFormat == PixelFormat::YUV420P && input.data[1] && input.data[2]));
     if (!hasCpuPlanes) {
-        error = "FFmpeg-Softwareencoder benötigt CPU-Bilddaten; native GPU-Frames werden hier nicht unterstützt.";
+        error = "Der aktuelle FFmpeg-Encoderpfad benötigt CPU-Bilddaten; native GPU-only-Frames werden noch nicht importiert.";
         m_impl->state = Impl::State::Failed;
         return false;
     }
