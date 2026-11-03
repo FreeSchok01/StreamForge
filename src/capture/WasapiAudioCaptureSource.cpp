@@ -147,7 +147,11 @@ float decodeSample(const std::uint8_t* sample, SampleKind kind) {
 bool convertPacket(const BYTE* data, UINT32 frames, DWORD flags,
                   UINT64 qpcPosition, const MixFormat& format,
                   AudioFrame& output, std::string& error) {
-    if (frames == 0) return false;
+    if (frames == 0 ||
+        frames > static_cast<UINT32>(std::numeric_limits<std::int32_t>::max())) {
+        error = "WASAPI-Audiopaket hat eine ungültige Frameanzahl.";
+        return false;
+    }
     const auto frameCount = static_cast<std::size_t>(frames);
     const auto channels = static_cast<std::size_t>(format.channels);
     if (frameCount > std::numeric_limits<std::size_t>::max() / channels) {
@@ -182,7 +186,8 @@ bool convertPacket(const BYTE* data, UINT32 frames, DWORD flags,
         }
     }
 
-    if (qpcPosition > 0 &&
+    if ((flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) == 0 &&
+        qpcPosition > 0 &&
         qpcPosition <= static_cast<UINT64>(
             std::numeric_limits<std::int64_t>::max() / 100)) {
         output.timestampNs = static_cast<std::int64_t>(qpcPosition * 100U);
@@ -199,7 +204,7 @@ struct WasapiAudioCaptureSource::Impl final {
     std::thread worker;
     HANDLE stopEvent{nullptr};
     std::atomic<bool> running{false};
-    std::mutex errorMutex;
+    mutable std::mutex errorMutex;
     std::string workerError;
 
     void setError(std::string error) {
@@ -208,9 +213,8 @@ struct WasapiAudioCaptureSource::Impl final {
     }
 
     std::string getError() const {
-        auto* self = const_cast<Impl*>(this);
-        std::lock_guard lock(self->errorMutex);
-        return self->workerError;
+        std::lock_guard lock(errorMutex);
+        return workerError;
     }
 
     void run(const AudioCaptureConfig& config,
@@ -235,14 +239,21 @@ struct WasapiAudioCaptureSource::Impl final {
         }
 
         HANDLE audioEvent = nullptr;
+        ComPtr<IMMDeviceEnumerator> enumerator;
+        ComPtr<IMMDevice> device;
+        ComPtr<IAudioClient> audioClient;
+        ComPtr<IAudioCaptureClient> captureClient;
         auto cleanup = [&] {
+            captureClient.Reset();
+            audioClient.Reset();
+            device.Reset();
+            enumerator.Reset();
             if (audioEvent) CloseHandle(audioEvent);
             if (comInitialized) CoUninitialize();
             running.store(false, std::memory_order_release);
         };
 
         try {
-            ComPtr<IMMDeviceEnumerator> enumerator;
             HRESULT hr = CoCreateInstance(
                 __uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                 IID_PPV_ARGS(&enumerator));
@@ -255,7 +266,6 @@ struct WasapiAudioCaptureSource::Impl final {
                 return;
             }
 
-            ComPtr<IMMDevice> device;
             if (config.deviceId.empty()) {
                 hr = enumerator->GetDefaultAudioEndpoint(
                     config.loopback ? eRender : eCapture, eConsole, &device);
@@ -271,7 +281,6 @@ struct WasapiAudioCaptureSource::Impl final {
                 return;
             }
 
-            ComPtr<IAudioClient> audioClient;
             hr = device->Activate(
                 __uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                 reinterpret_cast<void**>(audioClient.GetAddressOf()));
@@ -343,7 +352,6 @@ struct WasapiAudioCaptureSource::Impl final {
                 return;
             }
 
-            ComPtr<IAudioCaptureClient> captureClient;
             hr = audioClient->GetService(IID_PPV_ARGS(&captureClient));
             if (FAILED(hr)) {
                 const std::string message =
