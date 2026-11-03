@@ -8,8 +8,7 @@
 
 namespace streamforge {
 
-// CPU-owned frame storage for asynchronous handoff from capture to an encoder.
-// GPU texture leases will use a separate resource-backed queue.
+// Owns CPU fallback pixels and may additionally retain a native GPU resource.
 struct OwnedVideoFrame {
     std::int32_t width{0};
     std::int32_t height{0};
@@ -19,6 +18,9 @@ struct OwnedVideoFrame {
     std::int64_t pts{kNoTimestamp};
     std::int64_t timestampNs{kNoTimestamp};
     MediaTimebase timebase{};
+    NativeVideoResourceType nativeResourceType{NativeVideoResourceType::None};
+    void* nativeResource{nullptr};
+    std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
         if (width <= 0 || height <= 0 || !timebase.isValid()) return false;
@@ -62,6 +64,9 @@ struct OwnedVideoFrame {
         result.pts = pts;
         result.timestampNs = timestampNs;
         result.timebase = timebase;
+        result.nativeResourceType = nativeResourceType;
+        result.nativeResource = nativeResource;
+        result.nativeResourceOwner = nativeResourceOwner;
         for (std::size_t index = 0; index < planes.size(); ++index) {
             result.data[index] = planes[index].empty() ? nullptr : planes[index].data();
         }
