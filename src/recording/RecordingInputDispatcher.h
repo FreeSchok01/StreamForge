@@ -67,6 +67,7 @@ private:
         RecordingInputDispatcherState::Idle};
     std::atomic<bool> m_accepting{false};
     std::atomic<bool> m_stopRequested{false};
+    std::atomic<bool> m_abortRequested{false};
     std::atomic<Failure> m_failure{Failure::None};
     std::atomic<std::uint32_t> m_activeAudioSubmitters{0};
     std::atomic<std::uint32_t> m_activeVideoSubmitters{0};
