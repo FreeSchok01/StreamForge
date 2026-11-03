@@ -155,9 +155,9 @@ WindowsRecordingSessionSnapshot WindowsRecordingSession::snapshot() const {
 }
 
 bool WindowsRecordingSession::isRunning() const noexcept {
-    return m_started && m_audioCapture.isRunning() &&
-           m_videoCapture.isRunning() &&
-           m_dispatcher.snapshot().state == RecordingInputDispatcherState::Running;
+    return m_started.load(std::memory_order_acquire) &&
+           m_audioCapture.isRunning() &&
+           m_videoCapture.isRunning() && m_dispatcher.isRunning();
 }
 
 } // namespace streamforge
