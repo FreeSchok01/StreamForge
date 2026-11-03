@@ -18,6 +18,15 @@ and
 4. Start RecordingPipeline and RecordingInputDispatcher.
 5. Start WASAPI and DXGI capture workers.
 
+## Runtime health
+
+`snapshot()` exposes whether the audio/video capture workers and dispatcher
+are still running. It also reports `captureFailureDetected` and a
+`captureError` message if one of those workers stops unexpectedly. The
+application should react by stopping the session (normally in abort mode) and
+presenting the diagnostic; the coordinator does not silently continue with a
+missing audio or video stream.
+
 ## Shutdown order
 
 1. Stop DXGI and WASAPI capture workers.
@@ -53,5 +62,5 @@ if (!session.stop(RecordingStopMode::Graceful, error)) {
 This coordinator is a Windows-only integration baseline. It currently uses
 software FFmpeg encoding and CPU-owned BGRA video frames. It does not yet
 integrate the Qt studio UI, hardware encoders, GPU-native texture transport,
-device hot-plug recovery or Twitch output. Real hardware testing is still
+automatic device hot-plug recovery or Twitch output. WASAPI endpoint-change notifications stop capture safely, but the user must reselect the device and restart. Real hardware testing is still
 required on physical microphone, loopback and display devices.
