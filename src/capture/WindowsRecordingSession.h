@@ -21,6 +21,8 @@ struct WindowsRecordingSessionSnapshot {
     bool audioCaptureRunning{false};
     bool videoCaptureRunning{false};
     bool dispatcherRunning{false};
+    bool captureFailureDetected{false};
+    std::string captureError;
 };
 
 // Coordinates the real Windows capture -> dispatcher -> encoder -> muxer path.
