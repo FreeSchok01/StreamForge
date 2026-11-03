@@ -355,6 +355,10 @@ void nativeVideoResourceLifetime() {
           "video input view retains native resource owner");
     check(view.nativeDevice == view.nativeResource,
           "video input view retains native device handle");
+    check(view.nativeContext == view.nativeResource,
+          "video input view retains immediate context handle");
+    check(static_cast<bool>(view.nativeContextMutex),
+          "video input view retains shared immediate-context mutex");
     check(view.isValid(), "native video input view remains valid");
 
     auto nativeOnlyOwner = std::make_shared<int>(7);
