@@ -25,6 +25,7 @@ struct RecordingPipelineConfig {
     VideoEncoderConfig video;
     RecordingOutputConfig output;
     PacketQueueConfig packetQueue;
+    std::int64_t timestampOriginNs{kNoTimestamp};
     std::int32_t audioStreamIndex{0};
     std::int32_t videoStreamIndex{1};
 };
