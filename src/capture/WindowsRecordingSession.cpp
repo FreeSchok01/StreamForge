@@ -163,8 +163,11 @@ WindowsRecordingSessionSnapshot WindowsRecordingSession::snapshot() const {
         }
     }
     if (!result.videoCaptureRunning && sessionStarted) {
+        const std::string videoError = m_videoCapture.lastError();
         if (!result.captureError.empty()) result.captureError += " | ";
-        result.captureError += "DXGI-Video-Capture wurde unerwartet beendet.";
+        result.captureError += videoError.empty()
+            ? "DXGI-Video-Capture wurde unerwartet beendet."
+            : "DXGI: " + videoError;
     }
     if (!result.dispatcherRunning && sessionStarted) {
         if (!result.captureError.empty()) result.captureError += " | ";
