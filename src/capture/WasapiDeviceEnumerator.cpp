@@ -8,6 +8,7 @@
 #include <functiondiscoverykeys_devpkey.h>
 #include <mmdeviceapi.h>
 #include <propidl.h>
+#include <propsys.h>
 #include <wrl/client.h>
 
 #include <string>
@@ -33,6 +34,11 @@ std::string hrText(HRESULT hr) {
 EDataFlow toDataFlow(AudioDeviceFlow flow) {
     return flow == AudioDeviceFlow::Render ? eRender : eCapture;
 }
+
+struct ComApartment final {
+    bool shouldUninitialize{false};
+    ~ComApartment() { if (shouldUninitialize) CoUninitialize(); }
+};
 
 bool initializeCom(bool& shouldUninitialize, std::string& error) {
     const HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -83,6 +89,7 @@ bool WasapiDeviceEnumerator::enumerate(
     devices.clear();
     bool shouldUninitialize = false;
     if (!initializeCom(shouldUninitialize, error)) return false;
+    ComApartment apartment{shouldUninitialize};
 
     bool ok = false;
     {
@@ -144,7 +151,6 @@ bool WasapiDeviceEnumerator::enumerate(
         enumerator.Reset();
     }
 
-    if (shouldUninitialize) CoUninitialize();
     return ok;
 }
 
