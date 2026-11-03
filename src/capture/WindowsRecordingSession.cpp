@@ -42,6 +42,9 @@ bool WindowsRecordingSession::start(
     }
 
     WindowsRecordingSessionConfig effective = config;
+    // This coordinator currently feeds the CPU-based FFmpeg encoder. Avoid
+    // allocating and copying a second D3D11 texture for every captured frame.
+    effective.videoCapture.includeNativeResource = false;
     AudioCaptureFormat audioFormat;
     if (!m_audioCapture.queryFormat(
             effective.audioCapture, audioFormat, error)) {
