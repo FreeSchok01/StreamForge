@@ -15,6 +15,8 @@ struct VideoCaptureConfig {
     // Disable CPU staging readback when every downstream consumer is GPU-native.
     // The retained D3D11 texture is still produced and leased to the callback.
     bool includeCpuReadback{true};
+    // Retain an independent D3D11 texture for downstream native GPU consumers.
+    bool includeNativeResource{true};
 };
 
 using VideoCaptureCallback =
