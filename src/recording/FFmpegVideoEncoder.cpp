@@ -174,6 +174,51 @@ FFmpegVideoEncoder::~FFmpegVideoEncoder() {
     shutdown();
 }
 
+
+std::vector<FFmpegVideoEncoderCapability> FFmpegVideoEncoder::queryCapabilities() {
+    struct Candidate final {
+        VideoEncoderBackend backend;
+        VideoCodec codec;
+        const char* name;
+    };
+    static constexpr Candidate candidates[] = {
+        {VideoEncoderBackend::Software, VideoCodec::H264, "libx264"},
+        {VideoEncoderBackend::Software, VideoCodec::HEVC, "hevc"},
+        {VideoEncoderBackend::Software, VideoCodec::AV1, "av1"},
+        {VideoEncoderBackend::NVENC, VideoCodec::H264, "h264_nvenc"},
+        {VideoEncoderBackend::NVENC, VideoCodec::HEVC, "hevc_nvenc"},
+        {VideoEncoderBackend::NVENC, VideoCodec::AV1, "av1_nvenc"}
+    };
+
+    std::vector<FFmpegVideoEncoderCapability> result;
+    result.reserve(std::size(candidates));
+    for (const auto& candidate : candidates) {
+        const AVCodec* encoder = nullptr;
+        if (candidate.backend == VideoEncoderBackend::Software &&
+            candidate.codec != VideoCodec::H264) {
+            AVCodecID id = AV_CODEC_ID_NONE;
+            if (codecId(candidate.codec, id))
+                encoder = avcodec_find_encoder(id);
+        } else {
+            encoder = avcodec_find_encoder_by_name(candidate.name);
+            if (!encoder && candidate.backend == VideoEncoderBackend::Software &&
+                candidate.codec == VideoCodec::H264) {
+                AVCodecID id = AV_CODEC_ID_NONE;
+                if (codecId(candidate.codec, id))
+                    encoder = avcodec_find_encoder(id);
+            }
+        }
+
+        result.push_back({
+            candidate.backend,
+            candidate.codec,
+            encoder && encoder->name ? encoder->name : candidate.name,
+            encoder != nullptr
+        });
+    }
+    return result;
+}
+
 bool FFmpegVideoEncoder::initialize(std::string& error) {
     const auto& config = m_impl->config;
     if (m_impl->state != Impl::State::Empty) {
