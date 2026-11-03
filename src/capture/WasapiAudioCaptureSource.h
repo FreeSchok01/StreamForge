@@ -19,6 +19,9 @@ public:
     WasapiAudioCaptureSource(WasapiAudioCaptureSource&&) = delete;
     WasapiAudioCaptureSource& operator=(WasapiAudioCaptureSource&&) = delete;
 
+    bool queryFormat(const AudioCaptureConfig& config,
+                     AudioCaptureFormat& format,
+                     std::string& error) const override;
     bool start(const AudioCaptureConfig& config,
                AudioCaptureCallback callback,
                std::string& error) override;
