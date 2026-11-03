@@ -6,6 +6,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
