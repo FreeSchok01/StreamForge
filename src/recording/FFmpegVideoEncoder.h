@@ -13,6 +13,8 @@ struct FFmpegVideoEncoderCapability {
     VideoCodec codec{VideoCodec::H264};
     std::string encoderName;
     bool availableInBuild{false};
+    bool supportsD3D11Frames{false};
+    bool supportsCudaFrames{false};
 };
 
 class FFmpegVideoEncoder final : public IVideoEncoder {
