@@ -8,7 +8,8 @@
 
 namespace streamforge {
 
-// Non-owning view. Pointers remain valid until encode() returns.
+// CPU pixel pointers are non-owning and remain valid until encode() returns.
+// Native resources carry a shared lifetime lease for asynchronous consumers.
 struct VideoFrameInput {
     std::array<const std::uint8_t*, 4> data{};
     std::array<std::int32_t, 4> linesize{};
