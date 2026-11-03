@@ -226,7 +226,10 @@ bool D3D11BgraToNv12Converter::convert(
     }
 
     D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC inputViewDesc{};
-    inputViewDesc.FourCC = DXGI_FORMAT_B8G8R8A8_UNORM;
+    // Zero asks D3D11 to use the texture's DXGI format. This is the
+    // documented path for ordinary DXGI_FORMAT_* resources (FourCC is for
+    // explicitly tagged surface formats).
+    inputViewDesc.FourCC = 0;
     inputViewDesc.ViewDimension = D3D11_VPIV_DIMENSION_TEXTURE2D;
     inputViewDesc.Texture2D.MipSlice = 0;
     inputViewDesc.Texture2D.ArraySlice = 0;
