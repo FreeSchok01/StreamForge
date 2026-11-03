@@ -64,9 +64,9 @@ if (!session.stop(RecordingStopMode::Graceful, error)) {
 ## Current limits
 
 This coordinator is a Windows-only integration baseline. It currently uses
-software FFmpeg encoding and CPU-owned BGRA fallback frames. DXGI also
-attaches an owned D3D11 BGRA texture lease to each frame for downstream GPU
-consumers; the dispatcher preserves that lease across its worker handoff.
+software FFmpeg encoding and CPU-owned BGRA frames. The session disables
+`includeNativeResource` because its current FFmpeg encoder does not consume the
+extra D3D11 texture; standalone DXGI consumers can enable it when needed.
 The current FFmpeg encoder adapter consumes CPU pixels. Consequently,
 `WindowsRecordingSession::start()` rejects `videoCapture.includeCpuReadback=false`
 up front with an actionable error; native-only DXGI frames are currently for
