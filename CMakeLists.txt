@@ -40,14 +40,19 @@ endif()
 
 if(STREAMFORGE_WITH_FFMPEG)
     find_package(Threads REQUIRED)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-        libavformat
-        libavcodec
-        libavutil
-        libswresample
-        libswscale
-    )
+    if(WIN32)
+        # vcpkg's FFmpeg port supplies the FFMPEG CMake find-module.
+        find_package(FFMPEG REQUIRED)
+    else()
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+            libavformat
+            libavcodec
+            libavutil
+            libswresample
+            libswscale
+        )
+    endif()
 
     add_library(streamforge_ffmpeg_muxer
         src/recording/FFmpegMediaMuxer.cpp
@@ -64,7 +69,13 @@ if(STREAMFORGE_WITH_FFMPEG)
         PUBLIC ${PROJECT_SOURCE_DIR}/include
         PRIVATE ${PROJECT_SOURCE_DIR}/src/recording
     )
-    target_link_libraries(streamforge_ffmpeg_muxer PUBLIC PkgConfig::FFMPEG)
+    if(WIN32)
+        target_include_directories(streamforge_ffmpeg_muxer PRIVATE ${FFMPEG_INCLUDE_DIRS})
+        target_link_directories(streamforge_ffmpeg_muxer PRIVATE ${FFMPEG_LIBRARY_DIRS})
+        target_link_libraries(streamforge_ffmpeg_muxer PUBLIC ${FFMPEG_LIBRARIES})
+    else()
+        target_link_libraries(streamforge_ffmpeg_muxer PUBLIC PkgConfig::FFMPEG)
+    endif()
 
     if(MSVC)
         target_compile_options(streamforge_ffmpeg_muxer PRIVATE /W4 /permissive-)
@@ -85,7 +96,6 @@ if(STREAMFORGE_WITH_FFMPEG)
         )
         target_link_libraries(streamforge_ffmpeg_muxer_tests PRIVATE
             streamforge_ffmpeg_muxer
-            PkgConfig::FFMPEG
             Threads::Threads
         )
         add_test(NAME ffmpeg_muxer_matroska_integration
