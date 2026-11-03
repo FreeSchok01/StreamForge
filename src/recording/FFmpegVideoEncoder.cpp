@@ -181,14 +181,19 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
         return false;
     }
     if (!m_impl->callback || m_impl->streamIndex < 0 ||
-        config.backend != VideoEncoderBackend::Software ||
         config.width <= 0 || config.height <= 0 ||
         (config.width % 2) != 0 || (config.height % 2) != 0 ||
         config.fpsNumerator <= 0 || config.fpsDenominator <= 0 ||
         config.bitrate <= 0 || config.maxBitrate < config.bitrate ||
         config.keyframeInterval <= 0 ||
         config.rateControl == VideoRateControl::CQP) {
-        error = "Ungültige oder für den Software-Referenzencoder nicht unterstützte Konfiguration.";
+        error = "Ungültige Videencoder-Konfiguration.";
+        m_impl->state = Impl::State::Failed;
+        return false;
+    }
+    if (config.backend != VideoEncoderBackend::Software &&
+        config.backend != VideoEncoderBackend::NVENC) {
+        error = "Dieser FFmpeg-Adapter unterstützt aktuell nur Software und NVIDIA NVENC.";
         m_impl->state = Impl::State::Failed;
         return false;
     }
@@ -201,14 +206,29 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
     }
 
     const AVCodec* encoder = nullptr;
-    if (config.codec == VideoCodec::H264) {
-        encoder = avcodec_find_encoder_by_name("libx264");
-    }
-    if (!encoder) encoder = avcodec_find_encoder(id);
-    if (!encoder) {
-        error = "FFmpeg-Encoder für den angeforderten Video-Codec fehlt.";
-        m_impl->state = Impl::State::Failed;
-        return false;
+    if (config.backend == VideoEncoderBackend::NVENC) {
+        const char* encoderName = nullptr;
+        switch (config.codec) {
+        case VideoCodec::H264: encoderName = "h264_nvenc"; break;
+        case VideoCodec::HEVC: encoderName = "hevc_nvenc"; break;
+        case VideoCodec::AV1: encoderName = "av1_nvenc"; break;
+        }
+        encoder = encoderName ? avcodec_find_encoder_by_name(encoderName) : nullptr;
+        if (!encoder) {
+            error = "Der angeforderte NVIDIA-NVENC-Encoder ist in dieser FFmpeg-Build nicht verfügbar.";
+            m_impl->state = Impl::State::Failed;
+            return false;
+        }
+    } else {
+        if (config.codec == VideoCodec::H264) {
+            encoder = avcodec_find_encoder_by_name("libx264");
+        }
+        if (!encoder) encoder = avcodec_find_encoder(id);
+        if (!encoder) {
+            error = "FFmpeg-Softwareencoder für den angeforderten Video-Codec fehlt.";
+            m_impl->state = Impl::State::Failed;
+            return false;
+        }
     }
 
     m_impl->codec = avcodec_alloc_context3(encoder);
@@ -254,6 +274,19 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
         if (config.rateControl == VideoRateControl::CBR) {
             av_dict_set(&options, "x264-params", "nal-hrd=cbr:force-cfr=1", 0);
         }
+    }
+    if (config.backend == VideoEncoderBackend::NVENC) {
+        // NVENC receives the software-converted YUV frame and performs the
+        // actual compression on the NVIDIA GPU. Direct D3D11 texture import
+        // is deliberately a separate future optimization.
+        av_dict_set(&options, "preset", "p4", 0);
+        if (config.lowLatency) {
+            av_dict_set(&options, "tune", "ll", 0);
+            av_dict_set(&options, "zerolatency", "1", 0);
+            av_dict_set(&options, "rc-lookahead", "0", 0);
+        }
+        av_dict_set(&options, "rc",
+                    config.rateControl == VideoRateControl::CBR ? "cbr" : "vbr", 0);
     }
 
     const int openResult = avcodec_open2(context, encoder, &options);
