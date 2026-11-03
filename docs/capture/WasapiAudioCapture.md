@@ -15,14 +15,23 @@ QPC position converted to nanoseconds.
 
 ## Connecting to the recording dispatcher
 
-Start the RecordingPipeline, then the RecordingInputDispatcher, then connect the
-capture callback to its audio queue:
+Query the endpoint format first so the audio encoder input configuration
+matches the actual Windows mix format. The capture source converts that format
+to Float32 interleaved samples:
 
 ```cpp
 WasapiAudioCaptureSource capture;
 AudioCaptureConfig captureConfig;
 captureConfig.loopback = false; // true for desktop/system audio
 
+AudioCaptureFormat captureFormat;
+if (!capture.queryFormat(captureConfig, captureFormat, error)) {
+    // Handle format query error.
+}
+recordingConfig.audio.inputSampleRate = captureFormat.sampleRate;
+recordingConfig.audio.inputChannels = captureFormat.channels;
+
+// Then start RecordingPipeline and RecordingInputDispatcher before capture.
 if (!capture.start(captureConfig,
     [&dispatcher](AudioFrame&& frame, std::string&) {
         return dispatcher.trySubmitAudio(std::move(frame));
