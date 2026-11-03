@@ -22,6 +22,7 @@ struct MediaTimebase {
 enum class EncodedMediaType : std::uint8_t { Audio, Video };
 enum class EncodedCodec : std::uint8_t { H264, HEVC, AV1, AAC, Opus };
 enum class PixelFormat : std::uint8_t { Unknown, BGRA8, NV12, YUV420P };
+enum class NativeVideoResourceType : std::uint8_t { None, D3D11Texture2D };
 enum class AudioSampleFormat : std::uint8_t {
     Unknown, Float32, Float32Planar, Signed16, Signed16Planar
 };
