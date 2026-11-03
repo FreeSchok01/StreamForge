@@ -288,6 +288,8 @@ struct DxgiDesktopCaptureSource::Impl final {
             running.store(true, std::memory_order_release);
             publishStartup({true, {}});
 
+            bool hasFrameTimestamp = false;
+            std::int64_t lastFrameTimestampNs = 0;
             while (WaitForSingleObject(stopEvent, 0) != WAIT_OBJECT_0) {
                 DXGI_OUTDUPL_FRAME_INFO frameInfo{};
                 ComPtr<IDXGIResource> resource;
@@ -315,8 +317,20 @@ struct DxgiDesktopCaptureSource::Impl final {
                     break;
                 }
 
-                const std::int64_t timestampNs = qpcToNanoseconds(
+                std::int64_t timestampNs = qpcToNanoseconds(
                     frameInfo.LastPresentTime.QuadPart, qpcFrequency.QuadPart);
+                const std::int64_t acquisitionNowNs =
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count();
+                if (!hasFrameTimestamp && timestampNs < acquisitionNowNs) {
+                    // The initial duplication frame may describe an old desktop
+                    // present. Anchor the first captured image at acquisition time.
+                    timestampNs = acquisitionNowNs;
+                } else if (hasFrameTimestamp && timestampNs <= lastFrameTimestampNs) {
+                    timestampNs = lastFrameTimestampNs + 1;
+                }
+                lastFrameTimestampNs = timestampNs;
+                hasFrameTimestamp = true;
                 OwnedVideoFrame frame;
                 std::string copyError;
                 if (!copyDesktopFrame(
