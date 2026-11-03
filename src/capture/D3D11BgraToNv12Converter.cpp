@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "D3D11BgraToNv12Converter.h"
+#include "D3D11VideoProcessorCapabilities.h"
 
 #ifdef _WIN32
 
