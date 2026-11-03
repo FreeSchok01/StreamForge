@@ -122,8 +122,7 @@ public:
         return S_OK;
     }
 
-    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR deviceId) override {
-        if (matches(deviceId)) notify();
+    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR) override {
         return S_OK;
     }
 
@@ -139,8 +138,7 @@ public:
     }
 
     HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(
-        LPCWSTR deviceId, const PROPERTYKEY) override {
-        if (matches(deviceId)) notify();
+        LPCWSTR, const PROPERTYKEY) override {
         return S_OK;
     }
 
