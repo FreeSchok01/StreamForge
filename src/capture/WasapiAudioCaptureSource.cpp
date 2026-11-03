@@ -144,6 +144,17 @@ float decodeSample(const std::uint8_t* sample, SampleKind kind) {
     return std::clamp(value, -1.0F, 1.0F);
 }
 
+
+AudioChannelLayout channelLayoutForChannels(std::int32_t channels) {
+    switch (channels) {
+    case 1: return AudioChannelLayout::Mono;
+    case 2: return AudioChannelLayout::Stereo;
+    case 6: return AudioChannelLayout::Surround51;
+    case 8: return AudioChannelLayout::Surround71;
+    default: return AudioChannelLayout::Unknown;
+    }
+}
+
 bool convertPacket(const BYTE* data, UINT32 frames, DWORD flags,
                   UINT64 qpcPosition, const MixFormat& format,
                   AudioFrame& output, std::string& error) {
@@ -471,6 +482,69 @@ WasapiAudioCaptureSource::WasapiAudioCaptureSource()
 WasapiAudioCaptureSource::~WasapiAudioCaptureSource() {
     std::string ignored;
     (void)stop(ignored);
+}
+
+
+bool WasapiAudioCaptureSource::queryFormat(
+    const AudioCaptureConfig& config,
+    AudioCaptureFormat& format,
+    std::string& error) const {
+    const HRESULT comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool comInitialized = SUCCEEDED(comResult);
+    if (FAILED(comResult)) {
+        error = "COM konnte für WASAPI-Formatabfrage nicht initialisiert werden: " +
+                hresultText(comResult);
+        return false;
+    }
+
+    bool ok = false;
+    {
+        ComPtr<IMMDeviceEnumerator> enumerator;
+        ComPtr<IMMDevice> device;
+        ComPtr<IAudioClient> audioClient;
+        WAVEFORMATEX* mixFormat = nullptr;
+
+        HRESULT hr = CoCreateInstance(
+            __uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+            IID_PPV_ARGS(&enumerator));
+        if (SUCCEEDED(hr)) {
+            if (config.deviceId.empty()) {
+                hr = enumerator->GetDefaultAudioEndpoint(
+                    config.loopback ? eRender : eCapture, eConsole, &device);
+            } else {
+                hr = enumerator->GetDevice(config.deviceId.c_str(), &device);
+            }
+        }
+        if (SUCCEEDED(hr)) {
+            hr = device->Activate(
+                __uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                reinterpret_cast<void**>(audioClient.GetAddressOf()));
+        }
+        if (SUCCEEDED(hr)) hr = audioClient->GetMixFormat(&mixFormat);
+
+        if (FAILED(hr) || !mixFormat) {
+            error = "WASAPI-Eingabeformat konnte nicht abgefragt werden: " +
+                    hresultText(hr);
+        } else {
+            MixFormat parsed;
+            if (parseMixFormat(mixFormat, parsed, error)) {
+                format.sampleRate = parsed.sampleRate;
+                format.channels = parsed.channels;
+                format.sampleFormat = AudioSampleFormat::Float32;
+                format.channelLayout = channelLayoutForChannels(parsed.channels);
+                ok = format.isValid();
+                if (!ok) error = "WASAPI-Format ist nicht mit dem Audioencoder kompatibel.";
+            }
+        }
+
+        if (mixFormat) CoTaskMemFree(mixFormat);
+        audioClient.Reset();
+        device.Reset();
+        enumerator.Reset();
+    }
+
+    if (comInitialized) CoUninitialize();
+    return ok;
 }
 
 bool WasapiAudioCaptureSource::start(
