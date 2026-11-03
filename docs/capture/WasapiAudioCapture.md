@@ -33,8 +33,11 @@ recordingConfig.audio.inputChannels = captureFormat.channels;
 
 // Then start RecordingPipeline and RecordingInputDispatcher before capture.
 if (!capture.start(captureConfig,
-    [&dispatcher](AudioFrame&& frame, std::string&) {
-        return dispatcher.trySubmitAudio(std::move(frame));
+    [&dispatcher](AudioFrame&& frame, std::string& callbackError) {
+        if (dispatcher.trySubmitAudio(std::move(frame))) return true;
+        callbackError = dispatcher.snapshot().error;
+        if (callbackError.empty()) callbackError = "Audio dispatcher is not accepting input.";
+        return false;
     }, error)) {
     // Handle startup error.
 }
