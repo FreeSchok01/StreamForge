@@ -6,6 +6,10 @@ on:
       - "**"
   pull_request:
 
+concurrency:
+  group: recording-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lifecycle-tests:
     strategy:
