@@ -326,6 +326,8 @@ OwnedVideoFrame makeNativeOnlyVideoFrame() {
     frame.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
     frame.nativeResource = lease.get();
     frame.nativeDevice = lease.get();
+    frame.nativeContext = lease.get();
+    frame.nativeContextMutex = std::make_shared<std::mutex>();
     frame.nativeResourceOwner = std::move(lease);
     return frame;
 }
@@ -336,6 +338,8 @@ void nativeVideoResourceLifetime() {
     frame.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
     frame.nativeResource = owner.get();
     frame.nativeDevice = owner.get();
+    frame.nativeContext = owner.get();
+    frame.nativeContextMutex = std::make_shared<std::mutex>();
     frame.nativeResourceOwner = owner;
 
     VideoFrameInput view = frame.view();
@@ -362,6 +366,8 @@ void nativeVideoResourceLifetime() {
     nativeOnly.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
     nativeOnly.nativeResource = nativeOnlyOwner.get();
     nativeOnly.nativeDevice = nativeOnlyOwner.get();
+    nativeOnly.nativeContext = nativeOnlyOwner.get();
+    nativeOnly.nativeContextMutex = std::make_shared<std::mutex>();
     nativeOnly.nativeResourceOwner = nativeOnlyOwner;
     check(nativeOnly.isValid(), "native-only owned frame is valid without CPU planes");
     check(nativeOnly.view().isValid(), "native-only input view is valid without CPU planes");
