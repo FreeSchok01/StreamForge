@@ -572,8 +572,10 @@ bool WasapiAudioCaptureSource::queryFormat(
         if (SUCCEEDED(hr)) hr = audioClient->GetMixFormat(&mixFormat);
 
         if (FAILED(hr) || !mixFormat) {
-            error = "WASAPI-Eingabeformat konnte nicht abgefragt werden: " +
-                    hresultText(hr);
+            if (error.empty()) {
+                error = "WASAPI-Eingabeformat konnte nicht abgefragt werden: " +
+                        hresultText(hr);
+            }
         } else {
             MixFormat parsed;
             if (parseMixFormat(mixFormat, parsed, error)) {
