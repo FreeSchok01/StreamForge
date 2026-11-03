@@ -22,6 +22,8 @@ struct OwnedVideoFrame {
     NativeVideoResourceType nativeResourceType{NativeVideoResourceType::None};
     void* nativeResource{nullptr};
     void* nativeDevice{nullptr};
+    void* nativeContext{nullptr};
+    std::shared_ptr<std::mutex> nativeContextMutex;
     std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
@@ -30,10 +32,12 @@ struct OwnedVideoFrame {
         const bool hasNativeResource =
             nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
             pixelFormat == PixelFormat::BGRA8 &&
-            nativeResource && nativeDevice && nativeResourceOwner;
+            nativeResource && nativeDevice && nativeContext &&
+            nativeContextMutex && nativeResourceOwner;
         const bool hasNoNativeResource =
             nativeResourceType == NativeVideoResourceType::None &&
-            !nativeResource && !nativeDevice && !nativeResourceOwner;
+            !nativeResource && !nativeDevice && !nativeContext &&
+            !nativeContextMutex && !nativeResourceOwner;
         if (!hasNativeResource && !hasNoNativeResource) return false;
 
         const auto hasBytes = [](const std::vector<std::uint8_t>& bytes,
@@ -83,6 +87,8 @@ struct OwnedVideoFrame {
         result.nativeResourceType = nativeResourceType;
         result.nativeResource = nativeResource;
         result.nativeDevice = nativeDevice;
+        result.nativeContext = nativeContext;
+        result.nativeContextMutex = nativeContextMutex;
         result.nativeResourceOwner = nativeResourceOwner;
         for (std::size_t index = 0; index < planes.size(); ++index) {
             result.data[index] = planes[index].empty() ? nullptr : planes[index].data();
