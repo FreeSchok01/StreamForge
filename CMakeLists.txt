@@ -38,4 +38,17 @@ if(STREAMFORGE_WITH_FFMPEG)
             -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion
         )
     endif()
+
+    if(BUILD_TESTING)
+        add_executable(streamforge_ffmpeg_muxer_tests
+            tests/FFmpegMuxerIntegrationTests.cpp
+        )
+        target_compile_features(streamforge_ffmpeg_muxer_tests PRIVATE cxx_std_20)
+        target_link_libraries(streamforge_ffmpeg_muxer_tests PRIVATE
+            streamforge_ffmpeg_muxer
+            PkgConfig::FFMPEG
+        )
+        add_test(NAME ffmpeg_muxer_matroska_integration
+                 COMMAND streamforge_ffmpeg_muxer_tests)
+    endif()
 endif()
