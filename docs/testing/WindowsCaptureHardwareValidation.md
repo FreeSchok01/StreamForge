@@ -40,6 +40,9 @@ Never include stream keys, access tokens, or other credentials in logs or test a
 - [ ] Disconnect/reconnect a display during capture; verify DXGI retries duplication recovery for up to 20 attempts (250 ms intervals), resumes when the same output becomes available, and reports a clear error if recovery fails.
 - [ ] Test integrated and discrete GPU adapters where available.
 - [ ] Measure CPU utilization and memory bandwidth for the staging-texture readback path.
+- [ ] Repeat capture with `includeCpuReadback=false`; verify frames remain valid as native-only D3D11 resources and no CPU pixel planes are allocated.
+- [ ] Retain native frame leases after `ReleaseFrame()` and verify texture/device remain valid until the final lease is released.
+- [ ] Verify a GPU consumer uses a separately owned or externally synchronized D3D11 context; never concurrently use the capture worker's immediate context.
 - [ ] Confirm stop interrupts the acquisition loop within the configured acquire timeout.
 
 ## End-to-end recording
@@ -65,6 +68,6 @@ This checklist is a manual validation plan, not evidence that the listed hardwar
 
 - WASAPI endpoint hotplug/default-device recovery is not implemented.
 - DXGI retries `DXGI_ERROR_ACCESS_LOST` recovery against the existing adapter/output for up to approximately five seconds; adapter/output re-enumeration is not yet implemented, so topology changes that invalidate those objects may still require a new session.
-- DXGI retains a separate owned D3D11 BGRA texture alongside the CPU-readable staging copy. The dispatcher transports the resource lifetime lease, but the FFmpeg software encoder still reads CPU pixels; direct GPU encoding and zero-copy transport are not implemented.
+- DXGI always creates and retains an owned D3D11 BGRA texture. CPU staging readback is optional (`includeCpuReadback=true` by default); the existing FFmpeg adapter still requires CPU pixels. Direct D3D11 texture import into NVENC and zero-copy capture are not implemented.
 - Camera capture, cursor composition, and display rotation handling are not yet complete.
-- Hardware encoder adapters are not yet implemented.
+- FFmpeg-backed NVIDIA NVENC selection exists for H.264/HEVC/AV1 where available in the FFmpeg build, but it currently consumes CPU frames. AMD AMF and Intel oneVPL/QSV adapters, direct D3D11-to-NVENC import, and hardware runtime validation remain outstanding.
