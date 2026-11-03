@@ -29,6 +29,8 @@ if(STREAMFORGE_WITH_FFMPEG)
         src/recording/FFmpegAudioEncoder.h
         src/recording/FFmpegVideoEncoder.cpp
         src/recording/FFmpegVideoEncoder.h
+        src/recording/FFmpegRecordingFactories.cpp
+        src/recording/FFmpegRecordingFactories.h
     )
     target_compile_features(streamforge_ffmpeg_muxer PUBLIC cxx_std_20)
     target_include_directories(streamforge_ffmpeg_muxer
@@ -48,6 +50,7 @@ if(STREAMFORGE_WITH_FFMPEG)
     if(BUILD_TESTING)
         add_executable(streamforge_ffmpeg_muxer_tests
             tests/FFmpegMuxerIntegrationTests.cpp
+            src/recording/RecordingPipeline.cpp
         )
         target_compile_features(streamforge_ffmpeg_muxer_tests PRIVATE cxx_std_20)
         target_include_directories(streamforge_ffmpeg_muxer_tests PRIVATE
