@@ -316,6 +316,26 @@ OwnedVideoFrame makeOwnedVideoFrame() {
     return frame;
 }
 
+void nativeVideoResourceLifetime() {
+    auto owner = std::make_shared<int>(42);
+    OwnedVideoFrame frame = makeOwnedVideoFrame();
+    frame.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+    frame.nativeResource = owner.get();
+    frame.nativeResourceOwner = owner;
+
+    VideoFrameInput view = frame.view();
+    frame.nativeResourceOwner.reset();
+    owner.reset();
+
+    check(view.nativeResourceType == NativeVideoResourceType::D3D11Texture2D,
+          "native resource type survives owned-frame view");
+    check(view.nativeResource != nullptr &&
+          *static_cast<int*>(view.nativeResource) == 42,
+          "native resource remains alive while view owns its lease");
+    check(static_cast<bool>(view.nativeResourceOwner),
+          "video input view retains native resource owner");
+}
+
 void dispatcherNormalStop() {
     Fixture f;
     RecordingPipeline pipeline(f.factories());
@@ -443,7 +463,8 @@ void queueOverflow() {
 int main() {
     graceful(); abortRecordingTest(); startupFailure(); muxerOpenFailure();
     muxerWriteFailure(); stopWaitsForInFlightInput();
-    encoderFlushFailure(); dispatcherNormalStop(); dispatcherAudioOverflow();
+    encoderFlushFailure(); nativeVideoResourceLifetime();
+    dispatcherNormalStop(); dispatcherAudioOverflow();
     dispatcherVideoDropPolicy(); queueOverflow();
     std::cout << "RecordingPipeline lifecycle tests passed.\n";
     return 0;
