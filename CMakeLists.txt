@@ -18,11 +18,14 @@ if(STREAMFORGE_WITH_FFMPEG)
         libavformat
         libavcodec
         libavutil
+        libswresample
     )
 
     add_library(streamforge_ffmpeg_muxer
         src/recording/FFmpegMediaMuxer.cpp
         src/recording/FFmpegMediaMuxer.h
+        src/recording/FFmpegAudioEncoder.cpp
+        src/recording/FFmpegAudioEncoder.h
     )
     target_compile_features(streamforge_ffmpeg_muxer PUBLIC cxx_std_20)
     target_include_directories(streamforge_ffmpeg_muxer
