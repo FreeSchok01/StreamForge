@@ -64,7 +64,11 @@ if (!session.stop(RecordingStopMode::Graceful, error)) {
 ## Current limits
 
 This coordinator is a Windows-only integration baseline. It currently uses
-software FFmpeg encoding and CPU-owned BGRA video frames. It does not yet
-integrate the Qt studio UI, hardware encoders, GPU-native texture transport,
-automatic device hot-plug recovery or Twitch output. WASAPI endpoint-change notifications stop capture safely, but the user must reselect the device and restart. Real hardware testing is still
+software FFmpeg encoding and CPU-owned BGRA fallback frames. DXGI also
+attaches an owned D3D11 BGRA texture lease to each frame for downstream GPU
+consumers; the dispatcher preserves that lease across its worker handoff.
+The current FFmpeg software encoder still consumes CPU pixels, so this is not
+yet a zero-copy or hardware-encoding path. The coordinator does not yet
+integrate the Qt studio UI, hardware encoders, automatic device hot-plug
+recovery or Twitch output. WASAPI endpoint-change notifications stop capture safely, but the user must reselect the device and restart. Real hardware testing is still
 required on physical microphone, loopback and display devices.
