@@ -67,6 +67,22 @@ std::string captureErrorText(HRESULT result) {
     return hresultText(result);
 }
 
+bool ensureEndpointActive(IMMDevice* device, std::string& error) {
+    DWORD state = 0;
+    const HRESULT result = device->GetState(&state);
+    if (FAILED(result)) {
+        error = "Status des WASAPI-Endpunkts konnte nicht gelesen werden: "
+            + hresultText(result);
+        return false;
+    }
+    if (state != DEVICE_STATE_ACTIVE) {
+        error = "Der ausgewählte WASAPI-Endpunkt ist nicht aktiv. "
+            "Bitte ein angeschlossenes und aktiviertes Gerät auswählen.";
+        return false;
+    }
+    return true;
+}
+
 bool parseMixFormat(const WAVEFORMATEX* format, MixFormat& parsed,
                     std::string& error) {
     if (!format) {
@@ -307,6 +323,13 @@ struct WasapiAudioCaptureSource::Impl final {
                 cleanup();
                 return;
             }
+            std::string endpointError;
+            if (!ensureEndpointActive(device.Get(), endpointError)) {
+                setError(endpointError);
+                publishStartup({false, endpointError});
+                cleanup();
+                return;
+            }
 
             hr = device->Activate(
                 __uuidof(IAudioClient), CLSCTX_ALL, nullptr,
@@ -532,6 +555,13 @@ bool WasapiAudioCaptureSource::queryFormat(
                     config.loopback ? eRender : eCapture, eConsole, &device);
             } else {
                 hr = enumerator->GetDevice(config.deviceId.c_str(), &device);
+            }
+        }
+        if (SUCCEEDED(hr)) {
+            std::string endpointError;
+            if (!ensureEndpointActive(device.Get(), endpointError)) {
+                error = endpointError;
+                hr = E_FAIL;
             }
         }
         if (SUCCEEDED(hr)) {
