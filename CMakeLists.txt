@@ -125,6 +125,12 @@ if(STREAMFORGE_WITH_FFMPEG)
     endif()
 
     if(WIN32)
+        target_sources(streamforge_ffmpeg_muxer PRIVATE
+            src/recording/FFmpegD3D11DeviceContext.cpp
+            src/recording/FFmpegD3D11DeviceContext.h
+        )
+        target_link_libraries(streamforge_ffmpeg_muxer PUBLIC d3d11)
+
         add_library(streamforge_windows_recording_session
             src/capture/WindowsRecordingSession.cpp
             src/capture/WindowsRecordingSession.h
