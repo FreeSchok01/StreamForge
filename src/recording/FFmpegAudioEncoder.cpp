@@ -258,7 +258,7 @@ struct FFmpegAudioEncoder::Impl final {
         return true;
     }
 
-    bool appendConverted(const std::uint8_t* const* input, int inputSamples,
+    bool appendConverted(const std::uint8_t** input, int inputSamples,
                          std::string& error) {
         const int capacity = swr_get_out_samples(resampler, inputSamples);
         if (capacity < 0) {
