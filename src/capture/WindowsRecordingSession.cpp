@@ -32,6 +32,14 @@ bool WindowsRecordingSession::start(
         error = "Windows-Capture-Konfiguration enthält ungültige Puffer- oder Timeoutwerte.";
         return false;
     }
+    // This coordinator currently creates the FFmpeg encoder factories. The
+    // FFmpeg video adapter consumes CPU planes and cannot import D3D11 textures.
+    if (!config.videoCapture.includeCpuReadback) {
+        error = "Native GPU-only-DXGI-Frames sind in der aktuellen WindowsRecordingSession noch nicht nutzbar: "
+                "der konfigurierte FFmpeg-Videoencoder benötigt CPU-Bilddaten. "
+                "includeCpuReadback muss bis zur nativen GPU-Encoderintegration aktiviert bleiben.";
+        return false;
+    }
 
     WindowsRecordingSessionConfig effective = config;
     AudioCaptureFormat audioFormat;
