@@ -54,6 +54,7 @@ bool sampleFormat(AudioSampleFormat format, AVSampleFormat& result) {
     case AudioSampleFormat::Float32: result = AV_SAMPLE_FMT_FLT; return true;
     case AudioSampleFormat::Float32Planar: result = AV_SAMPLE_FMT_FLTP; return true;
     case AudioSampleFormat::Signed16: result = AV_SAMPLE_FMT_S16; return true;
+    case AudioSampleFormat::Signed16Planar: result = AV_SAMPLE_FMT_S16P; return true;
     case AudioSampleFormat::Unknown: return false;
     }
     return false;
