@@ -1,4 +1,5 @@
 #include "FFmpegRecordingFactories.h"
+#include "FFmpegVideoEncoder.h"
 #include "RecordingPipeline.h"
 
 extern "C" {
@@ -148,6 +149,14 @@ int runIntegration(RecordingContainer container, const std::filesystem::path& pa
 }
 
 int main() {
+    const auto capabilities = FFmpegVideoEncoder::queryCapabilities();
+    check(capabilities.size() == 6,
+          "FFmpeg capability query reports all supported backend/codec combinations");
+    for (const auto& capability : capabilities) {
+        check(!capability.encoderName.empty(),
+              "FFmpeg capability entry contains an encoder name");
+    }
+
     const auto directory = std::filesystem::temp_directory_path();
     const auto matroskaPath = directory / "streamforge_recording_pipeline_integration.mkv";
     const auto mp4Path = directory / "streamforge_recording_pipeline_integration.mp4";
