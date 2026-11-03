@@ -69,4 +69,4 @@ Der NVENC-Zweig wird auf `AV_PIX_FMT_D3D11` umgestellt und erhält `codec_ctx->h
 
 ## Noch nicht umgesetzt / nicht behauptet
 
-Diese Dokumentation beschreibt den Integrationsvertrag und die geplante Implementierung. Der aktuelle Konverter erstellt weiterhin eine neue NV12-Textur pro Frame. Der FFmpeg-D3D11VA-Gerätewrapper, der gemeinsame Texturpool und der direkte NVENC-Hardwareframe-Pfad sind noch nicht implementiert. Es gibt noch keine bestätigte NVIDIA-Hardwarevalidierung.
+Diese Dokumentation beschreibt den Integrationsvertrag und die geplante Implementierung. Der D3D11-Konverter besitzt inzwischen einen eigenen Lease-basierten Free-List-Pool und kann freigegebene NV12-Texturen wiederverwenden. Dieser Pool ist noch nicht an `AVHWFramesContext.pool` gekoppelt; die gemeinsame FFmpeg-Pool-Integration, der FFmpeg-D3D11VA-Gerätewrapper und der direkte NVENC-Hardwareframe-Pfad sind noch nicht implementiert. Es gibt noch keine bestätigte NVIDIA-Hardwarevalidierung.
