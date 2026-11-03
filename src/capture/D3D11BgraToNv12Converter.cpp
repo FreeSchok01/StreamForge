@@ -197,6 +197,12 @@ bool D3D11BgraToNv12Converter::convert(
         error = "D3D11-Eingabetextur muss eine nicht-multisampled BGRA8-UNORM-Textur in der konfigurierten Auflösung sein.";
         return false;
     }
+    ComPtr<ID3D11Device> inputDevice;
+    inputTexture->GetDevice(&inputDevice);
+    if (inputDevice.Get() != m_impl->device.Get()) {
+        error = "D3D11-Eingabetextur gehört nicht zum initialisierten Capture-Gerät.";
+        return false;
+    }
 
     D3D11_TEXTURE2D_DESC outputDesc{};
     outputDesc.Width = m_impl->width;
