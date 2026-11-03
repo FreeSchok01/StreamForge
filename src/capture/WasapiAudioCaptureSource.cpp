@@ -83,6 +83,83 @@ bool ensureEndpointActive(IMMDevice* device, std::string& error) {
     return true;
 }
 
+class WasapiDeviceNotificationClient final : public IMMNotificationClient {
+public:
+    WasapiDeviceNotificationClient(HANDLE eventHandle, std::wstring selectedId,
+                                   EDataFlow selectedFlow, bool usesDefault)
+        : m_eventHandle(eventHandle),
+          m_selectedId(std::move(selectedId)),
+          m_selectedFlow(selectedFlow),
+          m_usesDefault(usesDefault) {}
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override {
+        if (!object) return E_POINTER;
+        *object = nullptr;
+        if (iid == __uuidof(IUnknown) || iid == __uuidof(IMMNotificationClient)) {
+            *object = static_cast<IMMNotificationClient*>(this);
+            AddRef();
+            return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override {
+        return m_references.fetch_add(1, std::memory_order_relaxed) + 1;
+    }
+
+    ULONG STDMETHODCALLTYPE Release() override {
+        const ULONG remaining =
+            m_references.fetch_sub(1, std::memory_order_acq_rel) - 1;
+        if (remaining == 0) delete this;
+        return remaining;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(
+        LPCWSTR deviceId, DWORD newState) override {
+        if (matches(deviceId) && newState != DEVICE_STATE_ACTIVE) notify();
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR deviceId) override {
+        if (matches(deviceId)) notify();
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR deviceId) override {
+        if (matches(deviceId)) notify();
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(
+        EDataFlow flow, ERole role, LPCWSTR) override {
+        if (m_usesDefault && flow == m_selectedFlow && role == eConsole) notify();
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(
+        LPCWSTR deviceId, const PROPERTYKEY) override {
+        if (matches(deviceId)) notify();
+        return S_OK;
+    }
+
+private:
+    ~WasapiDeviceNotificationClient() = default;
+
+    bool matches(LPCWSTR deviceId) const noexcept {
+        return deviceId && !m_usesDefault && m_selectedId == deviceId;
+    }
+
+    void notify() const noexcept {
+        if (m_eventHandle) SetEvent(m_eventHandle);
+    }
+
+    std::atomic<ULONG> m_references{1};
+    HANDLE m_eventHandle{nullptr};
+    std::wstring m_selectedId;
+    EDataFlow m_selectedFlow{eCapture};
+    bool m_usesDefault{false};
+};
+
 bool parseMixFormat(const WAVEFORMATEX* format, MixFormat& parsed,
                     std::string& error) {
     if (!format) {
@@ -282,6 +359,9 @@ struct WasapiAudioCaptureSource::Impl final {
         }
 
         HANDLE audioEvent = nullptr;
+        HANDLE deviceChangeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        WasapiDeviceNotificationClient* notificationClient = nullptr;
+        bool notificationRegistered = false;
         ComPtr<IMMDeviceEnumerator> enumerator;
         ComPtr<IMMDevice> device;
         ComPtr<IAudioClient> audioClient;
@@ -290,7 +370,17 @@ struct WasapiAudioCaptureSource::Impl final {
             captureClient.Reset();
             audioClient.Reset();
             device.Reset();
+            if (notificationRegistered && enumerator && notificationClient) {
+                (void)enumerator->UnregisterEndpointNotificationCallback(
+                    notificationClient);
+                notificationRegistered = false;
+            }
+            if (notificationClient) {
+                notificationClient->Release();
+                notificationClient = nullptr;
+            }
             enumerator.Reset();
+            if (deviceChangeEvent) CloseHandle(deviceChangeEvent);
             if (audioEvent) CloseHandle(audioEvent);
             if (comInitialized) CoUninitialize();
             running.store(false, std::memory_order_release);
@@ -308,6 +398,37 @@ struct WasapiAudioCaptureSource::Impl final {
                 cleanup();
                 return;
             }
+
+            if (!deviceChangeEvent) {
+                const std::string message =
+                    "WASAPI-Geräteänderungs-Event konnte nicht erstellt werden.";
+                setError(message);
+                publishStartup({false, message});
+                cleanup();
+                return;
+            }
+            notificationClient = new (std::nothrow) WasapiDeviceNotificationClient(
+                deviceChangeEvent, config.deviceId,
+                config.loopback ? eRender : eCapture, config.deviceId.empty());
+            if (!notificationClient) {
+                const std::string message =
+                    "WASAPI-Gerätebenachrichtigung konnte nicht angelegt werden.";
+                setError(message);
+                publishStartup({false, message});
+                cleanup();
+                return;
+            }
+            hr = enumerator->RegisterEndpointNotificationCallback(notificationClient);
+            if (FAILED(hr)) {
+                const std::string message =
+                    "WASAPI-Gerätebenachrichtigung konnte nicht registriert werden: "
+                    + hresultText(hr);
+                setError(message);
+                publishStartup({false, message});
+                cleanup();
+                return;
+            }
+            notificationRegistered = true;
 
             if (config.deviceId.empty()) {
                 hr = enumerator->GetDefaultAudioEndpoint(
@@ -426,13 +547,19 @@ struct WasapiAudioCaptureSource::Impl final {
             running.store(true, std::memory_order_release);
             publishStartup({true, {}});
 
-            HANDLE handles[2] = {stopEvent, audioEvent};
+            HANDLE handles[3] = {stopEvent, deviceChangeEvent, audioEvent};
             bool keepRunning = true;
             while (keepRunning) {
                 const DWORD waitResult = WaitForMultipleObjects(
-                    2, handles, FALSE, INFINITE);
+                    3, handles, FALSE, INFINITE);
                 if (waitResult == WAIT_OBJECT_0) break;
-                if (waitResult != WAIT_OBJECT_0 + 1) {
+                if (waitResult == WAIT_OBJECT_0 + 1) {
+                    setError("Das verwendete Windows-Audiogerät oder der Standard-Endpunkt "
+                             "wurde geändert. Aufnahme wurde sicher gestoppt; bitte Gerät "
+                             "erneut auswählen und Capture neu starten.");
+                    break;
+                }
+                if (waitResult != WAIT_OBJECT_0 + 2) {
                     setError("WASAPI-Capture-Worker erhielt ein ungültiges Wait-Ergebnis.");
                     break;
                 }
