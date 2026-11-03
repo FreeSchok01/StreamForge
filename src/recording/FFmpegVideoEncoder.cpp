@@ -292,8 +292,11 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
     const int openResult = avcodec_open2(context, encoder, &options);
     av_dict_free(&options);
     if (openResult < 0) {
-        error = "FFmpeg-Videoencoder konnte nicht geöffnet werden: " +
-                ffmpegError(openResult);
+        error = config.backend == VideoEncoderBackend::NVENC
+            ? "NVIDIA-NVENC konnte nicht initialisiert werden (GPU, Treiber, Codec-Unterstützung oder FFmpeg-Build prüfen): " +
+                  ffmpegError(openResult)
+            : "FFmpeg-Videoencoder konnte nicht geöffnet werden: " +
+                  ffmpegError(openResult);
         m_impl->release();
         m_impl->state = Impl::State::Failed;
         return false;
