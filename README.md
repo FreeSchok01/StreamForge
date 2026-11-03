@@ -19,7 +19,7 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 WASAPI microphone/loopback capture, active endpoint enumeration and DXGI
 desktop capture are implemented as Windows-only sources and are coordinated
 by a Windows recording-session controller. DXGI can retain an owned D3D11 BGRA
-texture, its device and immediate context, and a shared context mutex in a COM
+texture, its device and immediate context, and a shared recursive context mutex in a COM
 lifetime lease alongside the optional CPU staging-readback frame, so GPU
 consumers can access the resource across the dispatcher handoff while
 serializing immediate-context access. CPU readback
