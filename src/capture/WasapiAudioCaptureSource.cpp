@@ -150,11 +150,18 @@ private:
         return deviceId && !m_usesDefault && m_selectedId == deviceId;
     }
 
-    void notify() const noexcept {
+    void disableNotifications() noexcept {
+        std::lock_guard lock(m_eventMutex);
+        m_eventHandle = nullptr;
+    }
+
+    void notify() noexcept {
+        std::lock_guard lock(m_eventMutex);
         if (m_eventHandle) SetEvent(m_eventHandle);
     }
 
     std::atomic<ULONG> m_references{1};
+    std::mutex m_eventMutex;
     HANDLE m_eventHandle{nullptr};
     std::wstring m_selectedId;
     EDataFlow m_selectedFlow{eCapture};
@@ -371,6 +378,7 @@ struct WasapiAudioCaptureSource::Impl final {
             captureClient.Reset();
             audioClient.Reset();
             device.Reset();
+            if (notificationClient) notificationClient->disableNotifications();
             if (notificationRegistered && enumerator && notificationClient) {
                 (void)enumerator->UnregisterEndpointNotificationCallback(
                     notificationClient);
