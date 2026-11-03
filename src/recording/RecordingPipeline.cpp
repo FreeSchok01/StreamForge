@@ -4,6 +4,7 @@
 #include "core/media/MediaTypes.h"
 
 #include <condition_variable>
+#include <chrono>
 #include <exception>
 #include <future>
 #include <mutex>
@@ -540,11 +541,21 @@ bool RecordingPipeline::start(const RecordingPipelineConfig& config, std::string
             };
         };
 
+        const std::int64_t timestampOriginNs =
+            config.timestampOriginNs != kNoTimestamp
+                ? config.timestampOriginNs
+                : std::chrono::duration_cast<std::chrono::nanoseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch()).count();
+        AudioEncoderConfig audioConfig = config.audio;
+        VideoEncoderConfig videoConfig = config.video;
+        audioConfig.timestampOriginNs = timestampOriginNs;
+        videoConfig.timestampOriginNs = timestampOriginNs;
+
         m_impl->audioEncoder = m_impl->factories.createAudioEncoder(
-            config.audio, makeCallback(EncodedMediaType::Audio, config.audioStreamIndex),
+            audioConfig, makeCallback(EncodedMediaType::Audio, config.audioStreamIndex),
             config.audioStreamIndex);
         m_impl->videoEncoder = m_impl->factories.createVideoEncoder(
-            config.video, makeCallback(EncodedMediaType::Video, config.videoStreamIndex),
+            videoConfig, makeCallback(EncodedMediaType::Video, config.videoStreamIndex),
             config.videoStreamIndex);
         if (!m_impl->audioEncoder || !m_impl->videoEncoder) {
             error = "Eine Encoder-Factory hat nullptr geliefert.";
