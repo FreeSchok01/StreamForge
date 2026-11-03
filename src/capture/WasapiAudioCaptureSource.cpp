@@ -489,9 +489,11 @@ bool WasapiAudioCaptureSource::queryFormat(
     const AudioCaptureConfig& config,
     AudioCaptureFormat& format,
     std::string& error) const {
+    format = {};
     const HRESULT comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     const bool comInitialized = SUCCEEDED(comResult);
-    if (FAILED(comResult)) {
+    const bool comAlreadyInitialized = comResult == RPC_E_CHANGED_MODE;
+    if (FAILED(comResult) && !comAlreadyInitialized) {
         error = "COM konnte für WASAPI-Formatabfrage nicht initialisiert werden: " +
                 hresultText(comResult);
         return false;
