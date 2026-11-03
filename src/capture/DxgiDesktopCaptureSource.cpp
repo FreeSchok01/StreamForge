@@ -28,7 +28,7 @@ struct D3D11FrameLease final {
     ComPtr<ID3D11Texture2D> texture;
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
-    std::shared_ptr<std::mutex> contextMutex;
+    std::shared_ptr<std::recursive_mutex> contextMutex;
 };
 
 struct StartResult {
@@ -70,7 +70,7 @@ bool copyDesktopFrame(
     std::int64_t timestampNs,
     bool includeCpuReadback,
     bool includeNativeResource,
-    const std::shared_ptr<std::mutex>& contextMutex,
+    const std::shared_ptr<std::recursive_mutex>& contextMutex,
     ComPtr<ID3D11Texture2D>& staging,
     OwnedVideoFrame& output,
     std::string& error) {
@@ -264,7 +264,7 @@ struct DxgiDesktopCaptureSource::Impl final {
         ComPtr<ID3D11DeviceContext> context;
         ComPtr<IDXGIOutputDuplication> duplication;
         ComPtr<ID3D11Texture2D> staging;
-        std::shared_ptr<std::mutex> contextMutex;
+        std::shared_ptr<std::recursive_mutex> contextMutex;
 
         auto cleanup = [&] {
             staging.Reset();
@@ -334,7 +334,7 @@ struct DxgiDesktopCaptureSource::Impl final {
                 setError(message); publishStartup({false, message}); cleanup(); return;
             }
 
-            contextMutex = std::make_shared<std::mutex>();
+            contextMutex = std::make_shared<std::recursive_mutex>();
 
             hr = output1->DuplicateOutput(device.Get(), &duplication);
             if (FAILED(hr)) {
