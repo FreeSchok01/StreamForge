@@ -26,13 +26,15 @@ struct OwnedVideoFrame {
 
     [[nodiscard]] bool isValid() const noexcept {
         if (width <= 0 || height <= 0 || !timebase.isValid()) return false;
-        if (nativeResourceType == NativeVideoResourceType::None) {
-            if (nativeResource || nativeDevice || nativeResourceOwner) return false;
-        } else if (nativeResourceType == NativeVideoResourceType::D3D11Texture2D) {
-            if (!nativeResource || !nativeDevice || !nativeResourceOwner) return false;
-        } else {
-            return false;
-        }
+
+        const bool hasNativeResource =
+            nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
+            nativeResource && nativeDevice && nativeResourceOwner;
+        const bool hasNoNativeResource =
+            nativeResourceType == NativeVideoResourceType::None &&
+            !nativeResource && !nativeDevice && !nativeResourceOwner;
+        if (!hasNativeResource && !hasNoNativeResource) return false;
+
         const auto hasBytes = [](const std::vector<std::uint8_t>& bytes,
                                  std::int32_t stride, std::int32_t rows) {
             if (stride <= 0 || rows <= 0) return false;
@@ -41,27 +43,31 @@ struct OwnedVideoFrame {
             return required <= bytes.size();
         };
 
+        bool hasCpuPixels = false;
         switch (pixelFormat) {
         case PixelFormat::BGRA8:
-            return width <= INT32_MAX / 4 &&
-                   linesize[0] >= width * 4 &&
-                   hasBytes(planes[0], linesize[0], height);
+            hasCpuPixels = width <= INT32_MAX / 4 &&
+                hasBytes(planes[0], linesize[0], height) &&
+                linesize[0] >= width * 4;
+            break;
         case PixelFormat::NV12:
-            return (width % 2) == 0 && (height % 2) == 0 &&
-                   linesize[0] >= width && linesize[1] >= width &&
-                   hasBytes(planes[0], linesize[0], height) &&
-                   hasBytes(planes[1], linesize[1], height / 2);
+            hasCpuPixels = (width % 2) == 0 && (height % 2) == 0 &&
+                linesize[0] >= width && linesize[1] >= width &&
+                hasBytes(planes[0], linesize[0], height) &&
+                hasBytes(planes[1], linesize[1], height / 2);
+            break;
         case PixelFormat::YUV420P:
-            return (width % 2) == 0 && (height % 2) == 0 &&
-                   linesize[0] >= width && linesize[1] >= width / 2 &&
-                   linesize[2] >= width / 2 &&
-                   hasBytes(planes[0], linesize[0], height) &&
-                   hasBytes(planes[1], linesize[1], height / 2) &&
-                   hasBytes(planes[2], linesize[2], height / 2);
+            hasCpuPixels = (width % 2) == 0 && (height % 2) == 0 &&
+                linesize[0] >= width && linesize[1] >= width / 2 &&
+                linesize[2] >= width / 2 &&
+                hasBytes(planes[0], linesize[0], height) &&
+                hasBytes(planes[1], linesize[1], height / 2) &&
+                hasBytes(planes[2], linesize[2], height / 2);
+            break;
         case PixelFormat::Unknown:
-            return false;
+            break;
         }
-        return false;
+        return hasCpuPixels || hasNativeResource;
     }
 
     [[nodiscard]] VideoFrameInput view() const noexcept {
