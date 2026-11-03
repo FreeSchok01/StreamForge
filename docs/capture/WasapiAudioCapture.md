@@ -51,8 +51,9 @@ separate worker threads.
 
 - Device enumeration and UI selection are not implemented yet; callers may pass
   a known endpoint ID or use the Windows default endpoint.
-- Device invalidation and WASAPI resource/service failures report actionable
-  diagnostics and stop capture cleanly. In particular, an unplugged endpoint
+- Inactive endpoints are rejected before initialization. Device invalidation
+  and WASAPI resource/service failures report actionable diagnostics and stop
+  capture cleanly. In particular, an unplugged endpoint
   is distinguished from a generic HRESULT and requires a new device selection
   and capture initialization. Automatic hot-plug recovery and endpoint-change
   notifications are future work.
