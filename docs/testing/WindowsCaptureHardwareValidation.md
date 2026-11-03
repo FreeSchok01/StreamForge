@@ -37,7 +37,7 @@ Never include stream keys, access tokens, or other credentials in logs or test a
 - [ ] Test 1080p60 and at least one higher-resolution or high-refresh display.
 - [ ] Change display resolution and orientation before starting a new capture.
 - [ ] Lock/unlock the workstation and test display sleep/wake.
-- [ ] Disconnect/reconnect a display during capture; verify the current ACCESS_LOST error is reported and resources are released.
+- [ ] Disconnect/reconnect a display during capture; verify DXGI retries duplication recovery for up to 20 attempts (250 ms intervals), resumes when the same output becomes available, and reports a clear error if recovery fails.
 - [ ] Test integrated and discrete GPU adapters where available.
 - [ ] Measure CPU utilization and memory bandwidth for the staging-texture readback path.
 - [ ] Confirm stop interrupts the acquisition loop within the configured acquire timeout.
@@ -64,7 +64,7 @@ This checklist is a manual validation plan, not evidence that the listed hardwar
 ## Known current limitations
 
 - WASAPI endpoint hotplug/default-device recovery is not implemented.
-- DXGI `DXGI_ERROR_ACCESS_LOST` currently stops capture and requires a new session.
+- DXGI retries `DXGI_ERROR_ACCESS_LOST` recovery against the existing adapter/output for up to approximately five seconds; adapter/output re-enumeration is not yet implemented, so topology changes that invalidate those objects may still require a new session.
 - DXGI currently copies frames through a CPU-readable staging texture; GPU-native frame handoff is future work.
 - Camera capture, cursor composition, and display rotation handling are not yet complete.
 - Hardware encoder adapters are not yet implemented.
