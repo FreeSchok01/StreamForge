@@ -24,6 +24,11 @@ namespace {
 
 using Microsoft::WRL::ComPtr;
 
+struct D3D11FrameLease final {
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11Device> device;
+};
+
 struct StartResult {
     bool ok{false};
     std::string error;
@@ -124,7 +129,8 @@ bool copyDesktopFrame(
     context->CopyResource(nativeTexture.Get(), source);
 
     context->CopyResource(staging.Get(), source);
-    D3D11_MAPPED_SUBRESOURCE mapped{};    const HRESULT mapResult =
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    const HRESULT mapResult =
         context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped);
     if (FAILED(mapResult)) {
         error = "DXGI-Staging-Textur konnte nicht gelesen werden: " +
@@ -169,15 +175,19 @@ bool copyDesktopFrame(
     context->Unmap(staging.Get(), 0);
 
     try {
-        output.nativeResourceOwner =
-            std::make_shared<ComPtr<ID3D11Texture2D>>(nativeTexture);
+        auto lease = std::make_shared<D3D11FrameLease>();
+        lease->texture = nativeTexture;
+        lease->device = device;
+        output.nativeResourceOwner = std::move(lease);
     } catch (...) {
         output = {};
-        error = "Lebensdauerhalter für native D3D11-Frame-Textur konnte nicht erstellt werden.";
+        error = "Lebensdauerhalter für native D3D11-Frame-Textur und Gerät konnte nicht erstellt werden.";
         return false;
     }
+    const auto lease = std::static_pointer_cast<D3D11FrameLease>(output.nativeResourceOwner);
     output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
-    output.nativeResource = nativeTexture.Get();
+    output.nativeResource = lease->texture.Get();
+    output.nativeDevice = lease->device.Get();
     return output.isValid();
 }
 
