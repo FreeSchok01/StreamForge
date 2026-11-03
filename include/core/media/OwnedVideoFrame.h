@@ -23,7 +23,7 @@ struct OwnedVideoFrame {
     void* nativeResource{nullptr};
     void* nativeDevice{nullptr};
     void* nativeContext{nullptr};
-    std::shared_ptr<std::mutex> nativeContextMutex;
+    std::shared_ptr<std::recursive_mutex> nativeContextMutex;
     std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
