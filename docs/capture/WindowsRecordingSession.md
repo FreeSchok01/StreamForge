@@ -17,6 +17,10 @@ and
    one audio buffer plus 50 ms before startup to tolerate buffered capture packets.
 4. Start RecordingPipeline and RecordingInputDispatcher.
 5. Start WASAPI and DXGI capture workers.
+6. Verify that both capture workers and both dispatcher workers are still alive
+   before reporting successful session startup. A worker that exits immediately
+   after its startup handshake causes startup to be aborted and the pipeline
+   to be cleaned up.
 
 ## Runtime health
 
