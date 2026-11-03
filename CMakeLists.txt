@@ -50,6 +50,8 @@ if(WIN32)
     add_library(streamforge_dxgi_capture
         src/capture/DxgiDesktopCaptureSource.cpp
         src/capture/DxgiDesktopCaptureSource.h
+        src/capture/D3D11VideoProcessorCapabilities.cpp
+        src/capture/D3D11VideoProcessorCapabilities.h
     )
     target_compile_features(streamforge_dxgi_capture PUBLIC cxx_std_20)
     target_include_directories(streamforge_dxgi_capture
