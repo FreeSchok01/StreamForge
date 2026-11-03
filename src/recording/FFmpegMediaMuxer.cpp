@@ -216,7 +216,11 @@ bool FFmpegMediaMuxer::configure(
     }
 
     std::error_code filesystemError;
-    const auto path = std::filesystem::u8path(config.outputPath);
+    const auto* utf8Begin =
+        reinterpret_cast<const char8_t*>(config.outputPath.data());
+    const std::u8string utf8Path(
+        utf8Begin, utf8Begin + config.outputPath.size());
+    const std::filesystem::path path(utf8Path);
     const bool exists = std::filesystem::exists(path, filesystemError);
     if (filesystemError) {
         error = "Ausgabedatei konnte nicht geprüft werden: " +
