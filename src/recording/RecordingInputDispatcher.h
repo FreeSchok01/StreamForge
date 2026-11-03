@@ -42,6 +42,10 @@ public:
     bool stop(RecordingStopMode mode, std::string& error);
 
     [[nodiscard]] RecordingInputDispatcherSnapshot snapshot() const;
+    [[nodiscard]] bool isRunning() const noexcept {
+        return m_state.load(std::memory_order_acquire) ==
+               RecordingInputDispatcherState::Running;
+    }
 
 private:
     enum class Failure : std::uint8_t {
