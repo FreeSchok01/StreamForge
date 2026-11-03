@@ -155,6 +155,16 @@ int main() {
     for (const auto& capability : capabilities) {
         check(!capability.encoderName.empty(),
               "FFmpeg capability entry contains an encoder name");
+        if (!capability.availableInBuild) {
+            check(!capability.supportsD3D11Frames &&
+                      !capability.supportsCudaFrames,
+                  "missing encoder cannot advertise hardware-frame support");
+        }
+        if (capability.backend == VideoEncoderBackend::Software) {
+            check(!capability.supportsD3D11Frames &&
+                      !capability.supportsCudaFrames,
+                  "software encoder inventory does not advertise hardware-frame input");
+        }
     }
 
     const auto directory = std::filesystem::temp_directory_path();
