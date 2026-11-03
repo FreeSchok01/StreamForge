@@ -47,6 +47,21 @@ The FFmpeg-enabled integration test creates a real recording through
 Matroska, reopens the file and verifies both streams. The FFmpeg-enabled CI job
 currently runs on Ubuntu; Windows CI validates the core lifecycle only.
 
+## Build: Windows with FFmpeg
+
+The repository includes a vcpkg manifest for FFmpeg with x264 support. With
+vcpkg installed and `VCPKG_ROOT` set:
+
+```powershell
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DSTREAMFORGE_WITH_FFMPEG=ON
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
+```
+
+The vcpkg manifest pins its registry baseline and enables the GPL x264 feature,
+consistent with this repository's GPL-3.0 license. The FFmpeg DLL directory
+(`vcpkg_installed/x64-windows/bin`) must be on `PATH` when running the tests.
+
 ## Threading contract
 
 `submitAudioFrame()` and `submitVideoFrame()` call their encoders synchronously.
