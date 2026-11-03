@@ -25,9 +25,7 @@ void check(bool condition, const std::string& message) {
 
 } // namespace
 
-int main() {
-    const auto path = std::filesystem::temp_directory_path() /
-                      "streamforge_recording_pipeline_integration.mkv";
+int runIntegration(RecordingContainer container, const std::filesystem::path& path) {
     std::error_code fsError;
     std::filesystem::remove(path, fsError);
 
@@ -54,7 +52,7 @@ int main() {
 
     config.timestampOriginNs = 1'000'000'000;
     config.output.outputPath = path.string();
-    config.output.container = RecordingContainer::Matroska;
+    config.output.container = container;
     config.output.overwriteExisting = true;
     config.packetQueue.maxPackets = 512;
     config.packetQueue.maxBytes = 32U * 1024U * 1024U;
@@ -144,6 +142,16 @@ int main() {
     avformat_close_input(&input);
 
     std::filesystem::remove(path, fsError);
-    std::cout << "Real RecordingPipeline AAC/H.264 Matroska integration passed.\n";
+    std::cout << "Real RecordingPipeline AAC/H.264 integration passed: "
+              << path.extension().string() << '\n';
+    return 0;
+}
+
+int main() {
+    const auto directory = std::filesystem::temp_directory_path();
+    const auto matroskaPath = directory / "streamforge_recording_pipeline_integration.mkv";
+    const auto mp4Path = directory / "streamforge_recording_pipeline_integration.mp4";
+    if (runIntegration(RecordingContainer::Matroska, matroskaPath) != 0) return 1;
+    if (runIntegration(RecordingContainer::Mp4, mp4Path) != 0) return 1;
     return 0;
 }
