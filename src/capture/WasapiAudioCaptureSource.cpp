@@ -636,6 +636,11 @@ WasapiAudioCaptureSource::WasapiAudioCaptureSource()
     : m_impl(std::make_unique<Impl>()) {}
 WasapiAudioCaptureSource::~WasapiAudioCaptureSource() = default;
 
+bool WasapiAudioCaptureSource::queryFormat(
+    const AudioCaptureConfig&, AudioCaptureFormat&, std::string& error) const {
+    error = "WASAPI ist nur unter Windows verfügbar.";
+    return false;
+}
 bool WasapiAudioCaptureSource::start(
     const AudioCaptureConfig&, AudioCaptureCallback, std::string& error) {
     error = "WASAPI ist nur unter Windows verfügbar.";
