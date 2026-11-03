@@ -10,6 +10,8 @@ namespace streamforge {
 
 // CPU pixel pointers are non-owning and remain valid until encode() returns.
 // Native resources carry a shared lifetime lease for asynchronous consumers.
+// For D3D11, nativeResource is ID3D11Texture2D* and nativeDevice is its
+// ID3D11Device*; both remain valid while nativeResourceOwner is retained.
 struct VideoFrameInput {
     std::array<const std::uint8_t*, 4> data{};
     std::array<std::int32_t, 4> linesize{};
