@@ -28,6 +28,7 @@ bool RecordingInputDispatcher::start(std::string& error) {
     }
 
     m_stopRequested.store(false, std::memory_order_release);
+    m_abortRequested.store(false, std::memory_order_release);
     m_state.store(RecordingInputDispatcherState::Running, std::memory_order_release);
 
     try {
@@ -81,6 +82,7 @@ void RecordingInputDispatcher::setFailure(
         }
     }
     m_accepting.store(false, std::memory_order_release);
+    m_abortRequested.store(true, std::memory_order_release);
     m_stopRequested.store(true, std::memory_order_release);
     m_state.store(RecordingInputDispatcherState::Failed, std::memory_order_release);
     notifyWorkers();
@@ -132,7 +134,8 @@ bool RecordingInputDispatcher::trySubmitVideo(OwnedVideoFrame&& frame) noexcept 
 
 void RecordingInputDispatcher::audioWorker() {
     for (;;) {
-        if (m_failure.load(std::memory_order_acquire) != Failure::None) return;
+        if (m_failure.load(std::memory_order_acquire) != Failure::None ||
+            m_abortRequested.load(std::memory_order_acquire)) return;
 
         AudioFrame frame;
         if (m_audioQueue.tryPop(frame)) {
@@ -150,6 +153,7 @@ void RecordingInputDispatcher::audioWorker() {
         m_workAvailable.wait(lock, [this] {
             return m_stopRequested.load(std::memory_order_acquire) ||
                    m_failure.load(std::memory_order_acquire) != Failure::None ||
+                   m_abortRequested.load(std::memory_order_acquire) ||
                    !m_audioQueue.empty();
         });
     }
@@ -176,6 +180,7 @@ void RecordingInputDispatcher::videoWorker() {
         m_workAvailable.wait(lock, [this] {
             return m_stopRequested.load(std::memory_order_acquire) ||
                    m_failure.load(std::memory_order_acquire) != Failure::None ||
+                   m_abortRequested.load(std::memory_order_acquire) ||
                    !m_videoQueue.empty();
         });
     }
@@ -203,6 +208,9 @@ bool RecordingInputDispatcher::stop(RecordingStopMode mode, std::string& error) 
         });
     }
 
+    if (mode == RecordingStopMode::Abort) {
+        m_abortRequested.store(true, std::memory_order_release);
+    }
     m_stopRequested.store(true, std::memory_order_release);
     notifyWorkers();
     if (m_audioThread.joinable()) m_audioThread.join();
