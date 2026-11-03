@@ -191,7 +191,7 @@ std::vector<FFmpegVideoEncoderCapability> FFmpegVideoEncoder::queryCapabilities(
     };
 
     std::vector<FFmpegVideoEncoderCapability> result;
-    result.reserve(std::size(candidates));
+    result.reserve(6);
     for (const auto& candidate : candidates) {
         const AVCodec* encoder = nullptr;
         if (candidate.backend == VideoEncoderBackend::Software &&
