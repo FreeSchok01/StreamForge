@@ -327,7 +327,7 @@ OwnedVideoFrame makeNativeOnlyVideoFrame() {
     frame.nativeResource = lease.get();
     frame.nativeDevice = lease.get();
     frame.nativeContext = lease.get();
-    frame.nativeContextMutex = std::make_shared<std::mutex>();
+    frame.nativeContextMutex = std::make_shared<std::recursive_mutex>();
     frame.nativeResourceOwner = std::move(lease);
     return frame;
 }
@@ -339,7 +339,7 @@ void nativeVideoResourceLifetime() {
     frame.nativeResource = owner.get();
     frame.nativeDevice = owner.get();
     frame.nativeContext = owner.get();
-    frame.nativeContextMutex = std::make_shared<std::mutex>();
+    frame.nativeContextMutex = std::make_shared<std::recursive_mutex>();
     frame.nativeResourceOwner = owner;
 
     VideoFrameInput view = frame.view();
@@ -358,7 +358,7 @@ void nativeVideoResourceLifetime() {
     check(view.nativeContext == view.nativeResource,
           "video input view retains immediate context handle");
     check(static_cast<bool>(view.nativeContextMutex),
-          "video input view retains shared immediate-context mutex");
+          "video input view retains shared recursive immediate-context mutex");
     check(view.isValid(), "native video input view remains valid");
 
     auto nativeOnlyOwner = std::make_shared<int>(7);
@@ -371,7 +371,7 @@ void nativeVideoResourceLifetime() {
     nativeOnly.nativeResource = nativeOnlyOwner.get();
     nativeOnly.nativeDevice = nativeOnlyOwner.get();
     nativeOnly.nativeContext = nativeOnlyOwner.get();
-    nativeOnly.nativeContextMutex = std::make_shared<std::mutex>();
+    nativeOnly.nativeContextMutex = std::make_shared<std::recursive_mutex>();
     nativeOnly.nativeResourceOwner = nativeOnlyOwner;
     check(nativeOnly.isValid(), "native-only owned frame is valid without CPU planes");
     check(nativeOnly.view().isValid(), "native-only input view is valid without CPU planes");
@@ -385,7 +385,7 @@ void nativeVideoResourceLifetime() {
     nativeNv12.nativeResource = nativeOnlyOwner.get();
     nativeNv12.nativeDevice = nativeOnlyOwner.get();
     nativeNv12.nativeContext = nativeOnlyOwner.get();
-    nativeNv12.nativeContextMutex = std::make_shared<std::mutex>();
+    nativeNv12.nativeContextMutex = std::make_shared<std::recursive_mutex>();
     nativeNv12.nativeResourceOwner = nativeOnlyOwner;
     check(nativeNv12.isValid(), "native-only D3D11 NV12 frame is valid");
     check(nativeNv12.view().isValid(), "native-only D3D11 NV12 input view is valid");
