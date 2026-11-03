@@ -51,6 +51,22 @@ std::string hresultText(HRESULT result) {
     }(static_cast<unsigned long>(result));
 }
 
+std::string captureErrorText(HRESULT result) {
+    if (result == AUDCLNT_E_DEVICE_INVALIDATED) {
+        return "Windows-Audio-Endpunkt wurde entfernt oder neu initialisiert ("
+            + hresultText(result) + "). Capture muss nach erneuter Geräteauswahl neu gestartet werden.";
+    }
+    if (result == AUDCLNT_E_RESOURCES_INVALIDATED) {
+        return "WASAPI-Audioressourcen wurden ungültig ("
+            + hresultText(result) + "). Capture muss neu initialisiert werden.";
+    }
+    if (result == AUDCLNT_E_SERVICE_NOT_RUNNING) {
+        return "Der Windows-Audio-Dienst läuft nicht ("
+            + hresultText(result) + ").";
+    }
+    return hresultText(result);
+}
+
 bool parseMixFormat(const WAVEFORMATEX* format, MixFormat& parsed,
                     std::string& error) {
     if (!format) {
@@ -403,7 +419,7 @@ struct WasapiAudioCaptureSource::Impl final {
                     hr = captureClient->GetNextPacketSize(&packetFrames);
                     if (FAILED(hr)) {
                         setError("WASAPI-Paketgröße konnte nicht gelesen werden: " +
-                                 hresultText(hr));
+                                 captureErrorText(hr));
                         keepRunning = false;
                         break;
                     }
@@ -420,7 +436,7 @@ struct WasapiAudioCaptureSource::Impl final {
                     (void)devicePosition;
                     if (FAILED(hr)) {
                         setError("WASAPI-Audiopuffer konnte nicht gelesen werden: " +
-                                 hresultText(hr));
+                                 captureErrorText(hr));
                         keepRunning = false;
                         break;
                     }
