@@ -321,6 +321,7 @@ void nativeVideoResourceLifetime() {
     OwnedVideoFrame frame = makeOwnedVideoFrame();
     frame.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
     frame.nativeResource = owner.get();
+    frame.nativeDevice = owner.get();
     frame.nativeResourceOwner = owner;
 
     VideoFrameInput view = frame.view();
@@ -334,6 +335,8 @@ void nativeVideoResourceLifetime() {
           "native resource remains alive while view owns its lease");
     check(static_cast<bool>(view.nativeResourceOwner),
           "video input view retains native resource owner");
+    check(view.nativeDevice == view.nativeResource,
+          "video input view retains native device handle");
     check(view.isValid(), "native video input view remains valid");
 }
 
