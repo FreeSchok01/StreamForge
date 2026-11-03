@@ -17,6 +17,10 @@ D3D11 texture pointer, its owning D3D11 device pointer and a shared lifetime
 owner that retains both COM objects. The current FFmpeg
 software encoder ignores this native resource and consumes the CPU pixels; this
 is not yet a zero-copy encoding path.
+The lease keeps both COM objects alive, but it does not transfer ownership of
+the capture worker's immediate context. Consumers must use a context they own
+or externally serialize immediate-context access; D3D11 immediate contexts
+must not be used concurrently from multiple threads.
 
 ## Connecting to the recording dispatcher
 
