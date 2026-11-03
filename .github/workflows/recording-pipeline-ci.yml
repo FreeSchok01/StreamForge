@@ -17,8 +17,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install FFmpeg development packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libavformat-dev libavcodec-dev libavutil-dev
+
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSTREAMFORGE_WITH_FFMPEG=${{ runner.os == 'Linux' }}
 
       - name: Build
         run: cmake --build build --config Debug --parallel
