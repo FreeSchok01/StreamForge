@@ -1,6 +1,10 @@
 #include "FFmpegAudioEncoder.h"
 #include "FFmpegMediaMuxer.h"
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -94,9 +98,6 @@ int main() {
     }
     check(muxer.finalize(error), "muxer finalize: " + error);
 
-    extern "C" {
-    // The test verifies the actual file with FFmpeg's demuxer below.
-    }
     AVFormatContext* input = nullptr;
     const int openResult = avformat_open_input(
         &input, path.string().c_str(), nullptr, nullptr);
