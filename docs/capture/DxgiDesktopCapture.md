@@ -53,9 +53,11 @@ performed by this conversion stage.
 
 The current implementation is a first functional path, not yet a production
 optimized one: it reuses completed NV12 output textures through a thread-safe
-free-list. Textures remain leased while downstream frames retain their owner;
-the pool can outlive converter shutdown while outstanding frames are still in
-use. Input/output processor views are still created per conversion. Colorimetry
+free-list capped at eight cached textures. Textures remain leased while
+downstream frames retain their owner; when a lease returns and the cache is
+already full, the excess texture is released instead of retained. The pool can
+outlive converter shutdown while outstanding frames are still in use.
+Input/output processor views are still created per conversion. Colorimetry
 is fixed to progressive SDR BT.709 with studio-range NV12 output. The FFmpeg/NVENC adapter
 still rejects native-only frames; the D3D11 NV12 output is not yet attached to
 an FFmpeg `AVHWFramesContext` or submitted to NVENC. Device/driver runtime
