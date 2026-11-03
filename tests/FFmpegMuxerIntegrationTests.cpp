@@ -9,6 +9,7 @@ extern "C" {
 }
 
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
