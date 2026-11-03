@@ -287,6 +287,15 @@ bool FFmpegVideoEncoder::encode(const VideoFrameInput& input, std::string& error
         m_impl->state = Impl::State::Failed;
         return false;
     }
+    const bool hasCpuPlanes = input.data[0] &&
+        (input.pixelFormat == PixelFormat::BGRA8 ||
+         (input.pixelFormat == PixelFormat::NV12 && input.data[1]) ||
+         (input.pixelFormat == PixelFormat::YUV420P && input.data[1] && input.data[2]));
+    if (!hasCpuPlanes) {
+        error = "FFmpeg-Softwareencoder benötigt CPU-Bilddaten; native GPU-Frames werden hier nicht unterstützt.";
+        m_impl->state = Impl::State::Failed;
+        return false;
+    }
 
     AVPixelFormat sourceFormat = AV_PIX_FMT_NONE;
     if (!inputPixelFormat(input.pixelFormat, sourceFormat)) {
