@@ -12,6 +12,9 @@ struct VideoCaptureConfig {
     std::uint32_t adapterIndex{0};
     std::uint32_t outputIndex{0};
     std::uint32_t acquireTimeoutMs{100};
+    // Disable CPU staging readback when every downstream consumer is GPU-native.
+    // The retained D3D11 texture is still produced and leased to the callback.
+    bool includeCpuReadback{true};
 };
 
 using VideoCaptureCallback =
