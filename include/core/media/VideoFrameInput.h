@@ -5,13 +5,16 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 
 namespace streamforge {
 
 // CPU pixel pointers are non-owning and remain valid until encode() returns.
 // Native resources carry a shared lifetime lease for asynchronous consumers.
 // For D3D11, nativeResource is ID3D11Texture2D* and nativeDevice is its
-// ID3D11Device*; both remain valid while nativeResourceOwner is retained.
+// ID3D11Device*, ID3D11DeviceContext* and a shared immediate-context mutex;
+// all remain valid while nativeResourceOwner is retained. Any consumer using
+// the immediate context must hold nativeContextMutex for the full operation.
 struct VideoFrameInput {
     std::array<const std::uint8_t*, 4> data{};
     std::array<std::int32_t, 4> linesize{};
@@ -24,6 +27,8 @@ struct VideoFrameInput {
     NativeVideoResourceType nativeResourceType{NativeVideoResourceType::None};
     void* nativeResource{nullptr};
     void* nativeDevice{nullptr};
+    void* nativeContext{nullptr};
+    std::shared_ptr<std::mutex> nativeContextMutex;
     std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
@@ -32,10 +37,12 @@ struct VideoFrameInput {
         const bool hasNativeResource =
             nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
             pixelFormat == PixelFormat::BGRA8 &&
-            nativeResource && nativeDevice && nativeResourceOwner;
+            nativeResource && nativeDevice && nativeContext &&
+            nativeContextMutex && nativeResourceOwner;
         const bool hasNoNativeResource =
             nativeResourceType == NativeVideoResourceType::None &&
-            !nativeResource && !nativeDevice && !nativeResourceOwner;
+            !nativeResource && !nativeDevice && !nativeContext &&
+            !nativeContextMutex && !nativeResourceOwner;
         if (!hasNativeResource && !hasNoNativeResource) return false;
 
         bool hasCpuPixels = false;
