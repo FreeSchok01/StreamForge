@@ -23,7 +23,7 @@ enum class EncodedMediaType : std::uint8_t { Audio, Video };
 enum class EncodedCodec : std::uint8_t { H264, HEVC, AV1, AAC, Opus };
 enum class PixelFormat : std::uint8_t { Unknown, BGRA8, NV12, YUV420P };
 enum class AudioSampleFormat : std::uint8_t {
-    Unknown, Float32, Float32Planar, Signed16
+    Unknown, Float32, Float32Planar, Signed16, Signed16Planar
 };
 enum class AudioChannelLayout : std::uint8_t {
     Unknown, Mono, Stereo, Surround51, Surround71
