@@ -29,11 +29,12 @@ NVENC adapter supports H.264, HEVC and AV1 hardware compression from CPU frames;
 it does not yet import the retained D3D11 texture directly. FFmpeg capability
 reporting includes build-time encoder presence and advertised D3D11VA/CUDA
 hardware-frame configurations, but does not probe the installed GPU or driver.
-A Windows D3D11 video-processor capability probe now checks BGRA8 input and
-NV12 output support as a preflight for the future GPU conversion stage; it does
-not perform conversion yet. Direct D3D11-to-NVENC frame submission, AMD AMF,
-Intel oneVPL/QSV, desktop UI
-and Twitch output are not yet implemented.
+A Windows D3D11 video-processor path now checks BGRA8-to-NV12 support and
+converts retained BGRA textures into native-only NV12 textures using
+`VideoProcessorBlt`. It shares and serializes the DXGI immediate context.
+Output-surface pooling, configurable colorimetry, FFmpeg D3D11 hardware-frame
+integration and direct NVENC submission are not implemented yet. AMD AMF,
+Intel oneVPL/QSV, desktop UI and Twitch output are also not yet implemented.
 
 ## Build: core lifecycle tests
 
