@@ -28,15 +28,21 @@ current input path.
 
 ## Not yet implemented
 
-- Direct D3D11 texture import and synchronization for NVENC.
+- Direct D3D11 texture import and synchronization for NVENC. FFmpeg must expose
+  a D3D11VA hardware-frame configuration for the selected NVENC encoder; the
+  existing BGRA capture texture also needs a GPU-side conversion to an NVENC-
+  compatible format such as NV12 before it can be submitted.
 - Runtime GPU/driver capability enumeration and automatic backend selection.
 - AMD AMF and Intel oneVPL/QSV adapters.
 - Hardware-specific quality, latency and sustained-load validation.
 
 The FFmpeg adapter exposes `FFmpegVideoEncoder::queryCapabilities()` so the
 application can list encoder implementations compiled into the linked FFmpeg
-build. This is a build-time inventory only: it does not probe a physical GPU,
-driver state or runtime codec support. A configured hardware backend is not
+build. Each entry also reports whether that encoder advertises D3D11VA or CUDA
+hardware-frame input through FFmpeg's `AVCodecHWConfig` interface. This is still
+a build-time inventory only: it does not probe a physical GPU, driver state,
+matching D3D11 device identity, pixel-format compatibility or runtime codec
+support. A configured hardware backend is not
 proof that a compatible GPU is present. Applications should treat encoder
 initialization as the definitive availability check and preserve the software
 backend as an explicit, user-visible fallback.
