@@ -18,8 +18,9 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 WASAPI microphone/loopback capture, active endpoint enumeration and DXGI
 desktop capture are implemented as Windows-only sources and are coordinated
 by a Windows recording-session controller. DXGI now retains an owned D3D11
-BGRA texture lease alongside the CPU staging-readback frame so future GPU
-consumers can access the native resource safely across the dispatcher handoff.
+BGRA texture and its D3D11 device in a shared COM lifetime lease alongside
+the CPU staging-readback frame, so future GPU consumers can access both safely
+across the dispatcher handoff.
 The current FFmpeg software encoder still uses CPU pixels; direct GPU encoding,
 hardware encoder adapters, desktop UI and Twitch output are not yet implemented.
 
