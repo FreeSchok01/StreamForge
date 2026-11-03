@@ -24,6 +24,18 @@ if(WIN32)
     )
     target_link_libraries(streamforge_wasapi_capture PRIVATE ole32 uuid)
     target_compile_options(streamforge_wasapi_capture PRIVATE /W4 /permissive-)
+
+    add_library(streamforge_dxgi_capture
+        src/capture/DxgiDesktopCaptureSource.cpp
+        src/capture/DxgiDesktopCaptureSource.h
+    )
+    target_compile_features(streamforge_dxgi_capture PUBLIC cxx_std_20)
+    target_include_directories(streamforge_dxgi_capture
+        PUBLIC ${PROJECT_SOURCE_DIR}/include
+        PRIVATE ${PROJECT_SOURCE_DIR}/src/capture
+    )
+    target_link_libraries(streamforge_dxgi_capture PRIVATE d3d11 dxgi ole32 uuid)
+    target_compile_options(streamforge_dxgi_capture PRIVATE /W4 /permissive-)
 endif()
 
 if(STREAMFORGE_WITH_FFMPEG)
