@@ -810,6 +810,10 @@ bool WasapiAudioCaptureSource::isRunning() const noexcept {
     return m_impl->running.load(std::memory_order_acquire);
 }
 
+std::string WasapiAudioCaptureSource::lastError() const {
+    return m_impl->getError();
+}
+
 } // namespace streamforge
 
 #else
@@ -837,6 +841,7 @@ bool WasapiAudioCaptureSource::stop(std::string& error) {
     return true;
 }
 bool WasapiAudioCaptureSource::isRunning() const noexcept { return false; }
+std::string WasapiAudioCaptureSource::lastError() const { return {}; }
 
 } // namespace streamforge
 
