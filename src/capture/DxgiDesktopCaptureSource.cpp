@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstring>
 #include <future>
+#include <iterator>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -32,7 +33,7 @@ std::string hresultText(HRESULT result) {
     std::string output = "HRESULT 0x00000000";
     unsigned long value = static_cast<unsigned long>(result);
     for (int index = 7; index >= 0; --index) {
-        output[static_cast<std::size_t>(index) + 11U] = digits[value & 0x0FU];
+        output[static_cast<std::size_t>(index) + 10U] = digits[value & 0x0FU];
         value >>= 4U;
     }
     return output;
@@ -129,9 +130,19 @@ bool copyDesktopFrame(
         error = "DXGI-Framegröße überschreitet den Adressraum.";
         return false;
     }
-    output.planes[0].resize(stride * rows);
-
     const auto* sourceBytes = static_cast<const std::uint8_t*>(mapped.pData);
+    if (!sourceBytes || mapped.RowPitch < output.linesize[0]) {
+        context->Unmap(staging.Get(), 0);
+        error = "DXGI-Mapped-Textur hat einen ungültigen Zeilenabstand.";
+        return false;
+    }
+    try {
+        output.planes[0].resize(stride * rows);
+    } catch (...) {
+        context->Unmap(staging.Get(), 0);
+        error = "Speicher für DXGI-CPU-Frame konnte nicht reserviert werden.";
+        return false;
+    }
     for (std::size_t row = 0; row < rows; ++row) {
         std::memcpy(
             output.planes[0].data() + row * stride,
