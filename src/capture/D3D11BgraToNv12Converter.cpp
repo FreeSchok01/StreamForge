@@ -20,7 +20,7 @@ struct Nv12FrameLease final {
     ComPtr<ID3D11Texture2D> texture;
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
-    std::shared_ptr<std::mutex> contextMutex;
+    std::shared_ptr<std::recursive_mutex> contextMutex;
 };
 
 std::string hresultText(HRESULT result) {
@@ -51,7 +51,7 @@ struct D3D11BgraToNv12Converter::Impl final {
     ComPtr<ID3D11VideoContext> videoContext;
     ComPtr<ID3D11VideoProcessorEnumerator> enumerator;
     ComPtr<ID3D11VideoProcessor> processor;
-    std::shared_ptr<std::mutex> contextMutex;
+    std::shared_ptr<std::recursive_mutex> contextMutex;
     std::uint32_t width{0};
     std::uint32_t height{0};
     bool initialized{false};
