@@ -426,8 +426,8 @@ struct DxgiDesktopCaptureSource::Impl final {
                     break;
                 }
 
-                // Release the duplication frame before handing the owned CPU copy
-                // to downstream workers.
+                // Release the duplication frame before handing the independently owned
+                // CPU/GPU frame and its lifetime lease to downstream workers.
                 const HRESULT releaseResult = duplication->ReleaseFrame();
                 release.duplication = nullptr;
                 if (FAILED(releaseResult)) {
