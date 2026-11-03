@@ -375,6 +375,23 @@ void nativeVideoResourceLifetime() {
     nativeOnly.nativeResourceOwner = nativeOnlyOwner;
     check(nativeOnly.isValid(), "native-only owned frame is valid without CPU planes");
     check(nativeOnly.view().isValid(), "native-only input view is valid without CPU planes");
+
+    OwnedVideoFrame nativeNv12;
+    nativeNv12.width = 2;
+    nativeNv12.height = 2;
+    nativeNv12.pixelFormat = PixelFormat::NV12;
+    nativeNv12.timebase = {1, 30};
+    nativeNv12.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+    nativeNv12.nativeResource = nativeOnlyOwner.get();
+    nativeNv12.nativeDevice = nativeOnlyOwner.get();
+    nativeNv12.nativeContext = nativeOnlyOwner.get();
+    nativeNv12.nativeContextMutex = std::make_shared<std::mutex>();
+    nativeNv12.nativeResourceOwner = nativeOnlyOwner;
+    check(nativeNv12.isValid(), "native-only D3D11 NV12 frame is valid");
+    check(nativeNv12.view().isValid(), "native-only D3D11 NV12 input view is valid");
+
+    nativeNv12.width = 3;
+    check(!nativeNv12.isValid(), "native-only D3D11 NV12 frame rejects odd width");
 }
 
 void dispatcherNormalStop() {
