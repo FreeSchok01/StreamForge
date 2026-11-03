@@ -24,6 +24,7 @@ public:
                std::string& error) override;
     bool stop(std::string& error) override;
     [[nodiscard]] bool isRunning() const noexcept override;
+    [[nodiscard]] std::string lastError() const;
 
 private:
     struct Impl;
