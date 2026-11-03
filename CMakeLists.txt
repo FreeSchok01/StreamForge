@@ -5,7 +5,37 @@ include(CTest)
 
 option(STREAMFORGE_BUILD_RECORDING_PIPELINE_TESTS
        "Build the standalone RecordingPipeline lifecycle tests" ON)
+option(STREAMFORGE_WITH_FFMPEG
+       "Build the FFmpeg-backed Matroska/MP4 muxer adapter" OFF)
 
 if(BUILD_TESTING AND STREAMFORGE_BUILD_RECORDING_PIPELINE_TESTS)
     add_subdirectory(tests)
+endif()
+
+if(STREAMFORGE_WITH_FFMPEG)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+        libavformat
+        libavcodec
+        libavutil
+    )
+
+    add_library(streamforge_ffmpeg_muxer
+        src/recording/FFmpegMediaMuxer.cpp
+        src/recording/FFmpegMediaMuxer.h
+    )
+    target_compile_features(streamforge_ffmpeg_muxer PUBLIC cxx_std_20)
+    target_include_directories(streamforge_ffmpeg_muxer
+        PUBLIC ${PROJECT_SOURCE_DIR}/include
+        PRIVATE ${PROJECT_SOURCE_DIR}/src/recording
+    )
+    target_link_libraries(streamforge_ffmpeg_muxer PUBLIC PkgConfig::FFMPEG)
+
+    if(MSVC)
+        target_compile_options(streamforge_ffmpeg_muxer PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(streamforge_ffmpeg_muxer PRIVATE
+            -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion
+        )
+    endif()
 endif()
