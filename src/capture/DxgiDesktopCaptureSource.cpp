@@ -67,6 +67,7 @@ bool copyDesktopFrame(
     ID3D11Texture2D* source,
     std::int64_t timestampNs,
     bool includeCpuReadback,
+    bool includeNativeResource,
     ComPtr<ID3D11Texture2D>& staging,
     OwnedVideoFrame& output,
     std::string& error) {
@@ -85,23 +86,6 @@ bool copyDesktopFrame(
         return false;
     }
 
-    // Always make an independently owned GPU texture before ReleaseFrame().
-    // This is a GPU copy, not zero-copy capture.
-    D3D11_TEXTURE2D_DESC nativeDesc = sourceDesc;
-    nativeDesc.Usage = D3D11_USAGE_DEFAULT;
-    nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    nativeDesc.CPUAccessFlags = 0;
-    nativeDesc.MiscFlags = 0;
-    ComPtr<ID3D11Texture2D> nativeTexture;
-    const HRESULT nativeResult =
-        device->CreateTexture2D(&nativeDesc, nullptr, &nativeTexture);
-    if (FAILED(nativeResult)) {
-        error = "D3D11-Frame-Textur für native Übergabe konnte nicht erstellt werden: " +
-                hresultText(nativeResult);
-        return false;
-    }
-    context->CopyResource(nativeTexture.Get(), source);
-
     output = {};
     output.width = static_cast<std::int32_t>(sourceDesc.Width);
     output.height = static_cast<std::int32_t>(sourceDesc.Height);
@@ -109,21 +93,40 @@ bool copyDesktopFrame(
     output.timestampNs = timestampNs;
     output.timebase = {1, 1'000'000'000};
 
-    try {
-        auto lease = std::make_shared<D3D11FrameLease>();
-        lease->texture = nativeTexture;
-        lease->device = device;
-        output.nativeResourceOwner = std::move(lease);
-    } catch (...) {
-        output = {};
-        error = "Lebensdauerhalter für native D3D11-Frame-Textur und Gerät konnte nicht erstellt werden.";
-        return false;
+    if (includeNativeResource) {
+        // Make an independently owned GPU texture before ReleaseFrame().
+        // This is a GPU copy, not zero-copy capture.
+        D3D11_TEXTURE2D_DESC nativeDesc = sourceDesc;
+        nativeDesc.Usage = D3D11_USAGE_DEFAULT;
+        nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        nativeDesc.CPUAccessFlags = 0;
+        nativeDesc.MiscFlags = 0;
+        ComPtr<ID3D11Texture2D> nativeTexture;
+        const HRESULT nativeResult =
+            device->CreateTexture2D(&nativeDesc, nullptr, &nativeTexture);
+        if (FAILED(nativeResult)) {
+            error = "D3D11-Frame-Textur für native Übergabe konnte nicht erstellt werden: " +
+                    hresultText(nativeResult);
+            return false;
+        }
+        context->CopyResource(nativeTexture.Get(), source);
+
+        try {
+            auto lease = std::make_shared<D3D11FrameLease>();
+            lease->texture = nativeTexture;
+            lease->device = device;
+            output.nativeResourceOwner = std::move(lease);
+        } catch (...) {
+            output = {};
+            error = "Lebensdauerhalter für native D3D11-Frame-Textur und Gerät konnte nicht erstellt werden.";
+            return false;
+        }
+        const auto lease =
+            std::static_pointer_cast<D3D11FrameLease>(output.nativeResourceOwner);
+        output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+        output.nativeResource = lease->texture.Get();
+        output.nativeDevice = lease->device.Get();
     }
-    const auto lease =
-        std::static_pointer_cast<D3D11FrameLease>(output.nativeResourceOwner);
-    output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
-    output.nativeResource = lease->texture.Get();
-    output.nativeDevice = lease->device.Get();
 
     if (includeCpuReadback) {
         D3D11_TEXTURE2D_DESC stagingDesc = sourceDesc;
@@ -420,7 +423,8 @@ struct DxgiDesktopCaptureSource::Impl final {
                 std::string copyError;
                 if (!copyDesktopFrame(
                         device.Get(), context.Get(), sourceTexture.Get(),
-                        timestampNs, config.includeCpuReadback, staging, frame, copyError)) {
+                        timestampNs, config.includeCpuReadback, config.includeNativeResource,
+                        staging, frame, copyError)) {
                     setError(copyError.empty()
                         ? "DXGI-Frame konnte nicht kopiert werden." : copyError);
                     break;
@@ -482,8 +486,9 @@ bool DxgiDesktopCaptureSource::start(
         return false;
     }
     if (!callback || config.acquireTimeoutMs == 0 ||
-        config.acquireTimeoutMs > 1000) {
-        error = "DXGI-Capture benötigt Callback und Timeout zwischen 1 und 1000 ms.";
+        config.acquireTimeoutMs > 1000 ||
+        (!config.includeCpuReadback && !config.includeNativeResource)) {
+        error = "DXGI-Capture benötigt Callback, Timeout zwischen 1 und 1000 ms und mindestens einen CPU-/GPU-Ausgabepfad.";
         return false;
     }
 
