@@ -33,6 +33,10 @@ current input path.
 - AMD AMF and Intel oneVPL/QSV adapters.
 - Hardware-specific quality, latency and sustained-load validation.
 
-A configured hardware backend is not proof that a compatible GPU is present.
-Applications should treat encoder initialization as the definitive
-availability check and preserve the software backend as an explicit fallback.
+The FFmpeg adapter exposes `FFmpegVideoEncoder::queryCapabilities()` so the
+application can list encoder implementations compiled into the linked FFmpeg
+build. This is a build-time inventory only: it does not probe a physical GPU,
+driver state or runtime codec support. A configured hardware backend is not
+proof that a compatible GPU is present. Applications should treat encoder
+initialization as the definitive availability check and preserve the software
+backend as an explicit, user-visible fallback.
