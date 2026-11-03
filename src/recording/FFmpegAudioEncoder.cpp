@@ -37,24 +37,51 @@ bool codecId(AudioCodec codec, AVCodecID& id) {
 }
 
 bool supportedRate(const AVCodec* codec, int rate) {
+#if LIBAVCODEC_VERSION_MAJOR >= 61
+    const void* configurations = nullptr;
+    if (avcodec_get_supported_config(
+            nullptr, codec, AV_CODEC_CONFIG_SAMPLE_RATE, 0,
+            &configurations, nullptr) < 0) {
+        return false;
+    }
+    if (!configurations) return true;
+    const auto* values = static_cast<const int*>(configurations);
+#else
     if (!codec->supported_samplerates) return true;
-    for (const int* value = codec->supported_samplerates; *value != 0; ++value) {
+    const auto* values = codec->supported_samplerates;
+#endif
+    for (const int* value = values; *value != 0; ++value) {
         if (*value == rate) return true;
     }
     return false;
 }
 
 bool supportedSampleFormat(const AVCodec* codec, AVSampleFormat& chosen) {
+#if LIBAVCODEC_VERSION_MAJOR >= 61
+    const void* configurations = nullptr;
+    if (avcodec_get_supported_config(
+            nullptr, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0,
+            &configurations, nullptr) < 0) {
+        return false;
+    }
+    if (!configurations) {
+        chosen = AV_SAMPLE_FMT_FLTP;
+        return true;
+    }
+    const auto* formats = static_cast<const AVSampleFormat*>(configurations);
+#else
     if (!codec->sample_fmts) {
         chosen = AV_SAMPLE_FMT_FLTP;
         return true;
     }
+    const auto* formats = codec->sample_fmts;
+#endif
     constexpr AVSampleFormat preference[] = {
         AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_FLT,
         AV_SAMPLE_FMT_S16P, AV_SAMPLE_FMT_S16
     };
     for (const auto preferred : preference) {
-        for (const AVSampleFormat* current = codec->sample_fmts;
+        for (const AVSampleFormat* current = formats;
              *current != AV_SAMPLE_FMT_NONE; ++current) {
             if (*current == preferred) {
                 chosen = preferred;

@@ -5,7 +5,6 @@
 #ifdef _WIN32
 
 #include <Windows.h>
-#include <functiondiscoverykeys_devpkey.h>
 #include <mmdeviceapi.h>
 #include <propidl.h>
 #include <propsys.h>
@@ -19,6 +18,14 @@ namespace streamforge {
 namespace {
 
 using Microsoft::WRL::ComPtr;
+
+// PKEY_Device_FriendlyName from the Windows property-key catalog
+// (fmtid {A45C254E-DF1C-4EFD-8020-67D146A850E0}, PID 14).
+constexpr PROPERTYKEY kDeviceFriendlyNameKey = {
+    {0xa45c254e, 0xdf1c, 0x4efd,
+     {0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0}},
+    14
+};
 
 std::string hrText(HRESULT hr) {
     constexpr char digits[] = "0123456789ABCDEF";
@@ -70,7 +77,7 @@ bool readDeviceInfo(IMMDevice* device, AudioDeviceFlow flow,
     if (SUCCEEDED(hr)) {
         PROPVARIANT value;
         PropVariantInit(&value);
-        hr = properties->GetValue(PKEY_Device_FriendlyName, &value);
+        hr = properties->GetValue(kDeviceFriendlyNameKey, &value);
         if (SUCCEEDED(hr) && value.vt == VT_LPWSTR && value.pwszVal) {
             result.name = value.pwszVal;
         }
