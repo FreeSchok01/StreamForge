@@ -4,6 +4,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
+#include <libavutil/hwcontext.h>
 #include <libavutil/mathematics.h>
 #include <libswscale/swscale.h>
 }
@@ -43,6 +44,19 @@ bool inputPixelFormat(PixelFormat format, AVPixelFormat& result) {
     case PixelFormat::Unknown: return false;
     }
     return false;
+}
+
+const AVCodecHWConfig* findHardwareFrameConfig(
+    const AVCodec* encoder, AVHWDeviceType deviceType) {
+    if (!encoder) return nullptr;
+    for (int index = 0;; ++index) {
+        const AVCodecHWConfig* config = avcodec_get_hw_config(encoder, index);
+        if (!config) return nullptr;
+        if (config->device_type == deviceType &&
+            (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) != 0) {
+            return config;
+        }
+    }
 }
 
 const AVCodec* findSoftwareEncoder(AVCodecID id) {
@@ -220,12 +234,19 @@ std::vector<FFmpegVideoEncoderCapability> FFmpegVideoEncoder::queryCapabilities(
             }
         }
 
-        result.push_back({
-            candidate.backend,
-            candidate.codec,
-            encoder && encoder->name ? encoder->name : candidate.name,
-            encoder != nullptr
-        });
+        FFmpegVideoEncoderCapability capability;
+        capability.backend = candidate.backend;
+        capability.codec = candidate.codec;
+        capability.encoderName =
+            encoder && encoder->name ? encoder->name : candidate.name;
+        capability.availableInBuild = encoder != nullptr;
+        if (encoder) {
+            capability.supportsD3D11Frames =
+                findHardwareFrameConfig(encoder, AV_HWDEVICE_TYPE_D3D11VA) != nullptr;
+            capability.supportsCudaFrames =
+                findHardwareFrameConfig(encoder, AV_HWDEVICE_TYPE_CUDA) != nullptr;
+        }
+        result.push_back(std::move(capability));
     }
     return result;
 }
