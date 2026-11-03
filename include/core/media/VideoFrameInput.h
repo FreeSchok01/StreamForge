@@ -27,30 +27,37 @@ struct VideoFrameInput {
     std::shared_ptr<void> nativeResourceOwner;
 
     [[nodiscard]] bool isValid() const noexcept {
-        if (!data[0] || width <= 0 || height <= 0 || linesize[0] <= 0 ||
-            pixelFormat == PixelFormat::Unknown || !timebase.isValid()) {
-            return false;
-        }
-        if (nativeResourceType == NativeVideoResourceType::None) {
-            if (nativeResource || nativeDevice || nativeResourceOwner) return false;
-        } else if (nativeResourceType == NativeVideoResourceType::D3D11Texture2D) {
-            if (!nativeResource || !nativeDevice || !nativeResourceOwner) return false;
-        } else {
-            return false;
-        }
+        if (width <= 0 || height <= 0 || !timebase.isValid()) return false;
+
+        const bool hasNativeResource =
+            nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
+            nativeResource && nativeDevice && nativeResourceOwner;
+        const bool hasNoNativeResource =
+            nativeResourceType == NativeVideoResourceType::None &&
+            !nativeResource && !nativeDevice && !nativeResourceOwner;
+        if (!hasNativeResource && !hasNoNativeResource) return false;
+
+        bool hasCpuPixels = false;
         switch (pixelFormat) {
         case PixelFormat::BGRA8:
-            return width <= INT32_MAX / 4 && linesize[0] >= width * 4;
+            hasCpuPixels = data[0] && width <= INT32_MAX / 4 &&
+                linesize[0] >= width * 4;
+            break;
         case PixelFormat::NV12:
-            return (width % 2) == 0 && (height % 2) == 0 &&
-                   data[1] && linesize[0] >= width && linesize[1] >= width;
+            hasCpuPixels = (width % 2) == 0 && (height % 2) == 0 &&
+                data[0] && data[1] && linesize[0] >= width &&
+                linesize[1] >= width;
+            break;
         case PixelFormat::YUV420P:
-            return (width % 2) == 0 && (height % 2) == 0 &&
-                   data[1] && data[2] && linesize[0] >= width &&
-                   linesize[1] >= width / 2 && linesize[2] >= width / 2;
-        default:
-            return false;
+            hasCpuPixels = (width % 2) == 0 && (height % 2) == 0 &&
+                data[0] && data[1] && data[2] &&
+                linesize[0] >= width && linesize[1] >= width / 2 &&
+                linesize[2] >= width / 2;
+            break;
+        case PixelFormat::Unknown:
+            break;
         }
+        return hasCpuPixels || hasNativeResource;
     }
 };
 
