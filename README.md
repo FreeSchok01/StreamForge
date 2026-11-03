@@ -32,8 +32,10 @@ hardware-frame configurations, but does not probe the installed GPU or driver.
 A Windows D3D11 video-processor path now checks BGRA8-to-NV12 support and
 converts retained BGRA textures into native-only NV12 textures using
 `VideoProcessorBlt`. It shares and serializes the DXGI immediate context.
-Output-surface pooling, configurable colorimetry, FFmpeg D3D11 hardware-frame
-integration and direct NVENC submission are not implemented yet. AMD AMF,
+A lease-based NV12 output-surface pool reuses completed textures and caps
+the free cache at eight surfaces; processor views are still created per frame.
+Configurable colorimetry, FFmpeg D3D11 hardware-frame integration and direct
+NVENC submission are not implemented yet. AMD AMF,
 Intel oneVPL/QSV, desktop UI and Twitch output are also not yet implemented.
 
 ## Build: core lifecycle tests
