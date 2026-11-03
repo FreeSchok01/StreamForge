@@ -149,8 +149,9 @@ WindowsRecordingSessionSnapshot WindowsRecordingSession::snapshot() const {
     result.pipeline = m_pipeline.snapshot();
     result.audioCaptureRunning = m_audioCapture.isRunning();
     result.videoCaptureRunning = m_videoCapture.isRunning();
+    const auto dispatcherSnapshot = m_dispatcher.snapshot();
     result.dispatcherRunning =
-        m_dispatcher.snapshot().state == RecordingInputDispatcherState::Running;
+        dispatcherSnapshot.state == RecordingInputDispatcherState::Running;
 
     const bool sessionStarted = m_started.load(std::memory_order_acquire);
     result.captureFailureDetected = sessionStarted &&
@@ -171,7 +172,9 @@ WindowsRecordingSessionSnapshot WindowsRecordingSession::snapshot() const {
     }
     if (!result.dispatcherRunning && sessionStarted) {
         if (!result.captureError.empty()) result.captureError += " | ";
-        result.captureError += "Recording-Dispatcher wurde unerwartet beendet.";
+        result.captureError += dispatcherSnapshot.error.empty()
+            ? "Recording-Dispatcher wurde unerwartet beendet."
+            : "Recording: " + dispatcherSnapshot.error;
     }
     return result;
 }
