@@ -171,7 +171,7 @@ void graceful() {
     check(f.s->writes==4,"four packets written");
 }
 
-void abort() {
+void abortRecordingTest() {
     Fixture f; RecordingPipeline p(f.factories()); std::string e;
     check(p.start(f.config(),e),"abort start");
     check(p.stop(RecordingStopMode::Abort,e),"abort stop");
@@ -229,7 +229,7 @@ void queueOverflow() {
 } // namespace
 
 int main() {
-    graceful(); abort(); startupFailure(); muxerOpenFailure();
+    graceful(); abortRecordingTest(); startupFailure(); muxerOpenFailure();
     muxerWriteFailure(); queueOverflow();
     std::cout << "RecordingPipeline lifecycle tests passed.\n";
     return 0;
