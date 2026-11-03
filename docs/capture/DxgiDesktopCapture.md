@@ -25,7 +25,7 @@ Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
 the shared session clock. `VideoFrameInput` carries the native resource type,
 D3D11 texture pointer, its owning D3D11 device and immediate-context pointers,
-a shared immediate-context mutex, and a lifetime owner retaining the COM
+a shared recursive immediate-context mutex, and a lifetime owner retaining the COM
 objects and mutex. The media frame contract also permits a D3D11 BGRA frame with no CPU planes,
 so a future GPU encoder can avoid readback. The current FFmpeg software encoder
 explicitly rejects native-only frames and consumes CPU pixels when provided;
@@ -48,7 +48,7 @@ it creates a video-processor input view for the retained BGRA texture, an
 NV12 output texture with render-target/video-encoder binding, an output view,
 and submits `VideoProcessorBlt`. The output is a native-only
 `OwnedVideoFrame` with `PixelFormat::NV12`; its lease retains the output
-texture, device, immediate context and shared context mutex. No CPU readback is
+texture, device, immediate context and shared recursive context mutex. No CPU readback is
 performed by this conversion stage.
 
 The current implementation is a first functional path, not yet a production
