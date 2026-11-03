@@ -28,6 +28,13 @@ struct VideoFrameInput {
             pixelFormat == PixelFormat::Unknown || !timebase.isValid()) {
             return false;
         }
+        if (nativeResourceType == NativeVideoResourceType::None) {
+            if (nativeResource || nativeResourceOwner) return false;
+        } else if (nativeResourceType == NativeVideoResourceType::D3D11Texture2D) {
+            if (!nativeResource || !nativeResourceOwner) return false;
+        } else {
+            return false;
+        }
         switch (pixelFormat) {
         case PixelFormat::BGRA8:
             return width <= INT32_MAX / 4 && linesize[0] >= width * 4;
