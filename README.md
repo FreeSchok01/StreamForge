@@ -8,14 +8,15 @@ The repository is being bootstrapped around a standalone C++ recording engine.
 - Shared media, audio/video frame, encoder and muxer contracts under `include/core/`.
 - Recording orchestration under `src/recording/`.
 - Bounded encoded-packet queue and a dedicated single-owner muxer worker.
+- Asynchronous capture-to-encoder dispatcher with SPSC audio/video queues.
 - Input/callback admission gates, graceful finalization, abort and error propagation.
 - FFmpeg audio encoder with persistent resampling and sample FIFO.
 - FFmpeg software video encoder with pixel-format conversion.
 - FFmpeg Matroska/MP4 muxer adapter.
 - Mock-based lifecycle tests and a real AAC + H.264 Matroska end-to-end test.
 
-Capture backends (WASAPI/DXGI), GPU hardware encoder adapters, desktop UI and Twitch
-output are not yet implemented.
+Capture backends (WASAPI/DXGI), GPU-native texture handoff, hardware encoder
+adapters, desktop UI and Twitch output are not yet implemented.
 
 ## Build: core lifecycle tests
 
