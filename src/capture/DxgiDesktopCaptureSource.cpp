@@ -15,6 +15,7 @@
 #include <future>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -105,9 +106,25 @@ bool copyDesktopFrame(
         }
     }
 
+    // Retain an owned default-usage texture beyond DXGI ReleaseFrame().
+    // This is a GPU copy, not zero-copy; software encoding still uses CPU pixels.
+    D3D11_TEXTURE2D_DESC nativeDesc = sourceDesc;
+    nativeDesc.Usage = D3D11_USAGE_DEFAULT;
+    nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    nativeDesc.CPUAccessFlags = 0;
+    nativeDesc.MiscFlags = 0;
+    ComPtr<ID3D11Texture2D> nativeTexture;
+    const HRESULT nativeResult =
+        device->CreateTexture2D(&nativeDesc, nullptr, &nativeTexture);
+    if (FAILED(nativeResult)) {
+        error = "D3D11-Frame-Textur für native Übergabe konnte nicht erstellt werden: " +
+                hresultText(nativeResult);
+        return false;
+    }
+    context->CopyResource(nativeTexture.Get(), source);
+
     context->CopyResource(staging.Get(), source);
-    D3D11_MAPPED_SUBRESOURCE mapped{};
-    const HRESULT mapResult =
+    D3D11_MAPPED_SUBRESOURCE mapped{};    const HRESULT mapResult =
         context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped);
     if (FAILED(mapResult)) {
         error = "DXGI-Staging-Textur konnte nicht gelesen werden: " +
@@ -150,6 +167,17 @@ bool copyDesktopFrame(
             stride);
     }
     context->Unmap(staging.Get(), 0);
+
+    try {
+        output.nativeResourceOwner =
+            std::make_shared<ComPtr<ID3D11Texture2D>>(nativeTexture);
+    } catch (...) {
+        output = {};
+        error = "Lebensdauerhalter für native D3D11-Frame-Textur konnte nicht erstellt werden.";
+        return false;
+    }
+    output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
+    output.nativeResource = nativeTexture.Get();
     return output.isValid();
 }
 
