@@ -151,6 +151,25 @@ WindowsRecordingSessionSnapshot WindowsRecordingSession::snapshot() const {
     result.videoCaptureRunning = m_videoCapture.isRunning();
     result.dispatcherRunning =
         m_dispatcher.snapshot().state == RecordingInputDispatcherState::Running;
+
+    const bool sessionStarted = m_started.load(std::memory_order_acquire);
+    result.captureFailureDetected = sessionStarted &&
+        (!result.audioCaptureRunning || !result.videoCaptureRunning ||
+         !result.dispatcherRunning);
+    if (!result.audioCaptureRunning) {
+        result.captureError = m_audioCapture.lastError();
+        if (result.captureError.empty() && sessionStarted) {
+            result.captureError = "WASAPI-Audio-Capture wurde unerwartet beendet.";
+        }
+    }
+    if (!result.videoCaptureRunning && sessionStarted) {
+        if (!result.captureError.empty()) result.captureError += " | ";
+        result.captureError += "DXGI-Video-Capture wurde unerwartet beendet.";
+    }
+    if (!result.dispatcherRunning && sessionStarted) {
+        if (!result.captureError.empty()) result.captureError += " | ";
+        result.captureError += "Recording-Dispatcher wurde unerwartet beendet.";
+    }
     return result;
 }
 
