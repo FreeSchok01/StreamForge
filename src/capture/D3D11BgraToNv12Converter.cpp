@@ -10,6 +10,7 @@
 #include <wrl/client.h>
 
 #include <mutex>
+#include <vector>
 #include <utility>
 
 namespace streamforge {
