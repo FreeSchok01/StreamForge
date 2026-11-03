@@ -5,6 +5,7 @@
 #include "DxgiDesktopCaptureSource.h"
 #include "WasapiAudioCaptureSource.h"
 
+#include <atomic>
 #include <string>
 
 namespace streamforge {
@@ -47,7 +48,7 @@ private:
     DxgiDesktopCaptureSource m_videoCapture;
     bool m_audioStarted{false};
     bool m_videoStarted{false};
-    bool m_started{false};
+    std::atomic<bool> m_started{false};
 };
 
 } // namespace streamforge
