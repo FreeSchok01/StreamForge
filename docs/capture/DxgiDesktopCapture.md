@@ -13,7 +13,8 @@ queue handoff, allowing a future GPU consumer to access the texture safely.
 Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
 the shared session clock. `VideoFrameInput` carries the native resource type,
-opaque D3D11 texture pointer and shared lifetime owner. The current FFmpeg
+D3D11 texture pointer, its owning D3D11 device pointer and a shared lifetime
+owner that retains both COM objects. The current FFmpeg
 software encoder ignores this native resource and consumes the CPU pixels; this
 is not yet a zero-copy encoding path.
 
