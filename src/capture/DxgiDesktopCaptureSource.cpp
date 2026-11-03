@@ -297,8 +297,45 @@ struct DxgiDesktopCaptureSource::Impl final {
                     config.acquireTimeoutMs, &frameInfo, &resource);
                 if (hr == DXGI_ERROR_WAIT_TIMEOUT) continue;
                 if (hr == DXGI_ERROR_ACCESS_LOST) {
-                    setError("DXGI Desktop Duplication verlor den Zugriff; Neustart erforderlich.");
-                    break;
+                    // Desktop topology changes, lock/unlock, and display power
+                    // transitions invalidate the duplication interface. Recreate
+                    // it on the existing adapter/output before failing the session.
+                    duplication.Reset();
+                    constexpr unsigned kMaxRecoveryAttempts = 20;
+                    bool recovered = false;
+                    for (unsigned attempt = 0;
+                         attempt < kMaxRecoveryAttempts &&
+                         WaitForSingleObject(stopEvent, 0) != WAIT_OBJECT_0;
+                         ++attempt) {
+                        const DWORD waitResult = WaitForSingleObject(stopEvent, 250);
+                        if (waitResult == WAIT_OBJECT_0) break;
+                        if (waitResult != WAIT_TIMEOUT) {
+                            setError("DXGI-Wiederherstellung konnte den Stop-Event nicht abfragen.");
+                            break;
+                        }
+                        hr = output1->DuplicateOutput(device.Get(), &duplication);
+                        if (SUCCEEDED(hr)) {
+                            recovered = true;
+                            hasFrameTimestamp = false;
+                            break;
+                        }
+                        if (hr != DXGI_ERROR_NOT_CURRENTLY_AVAILABLE &&
+                            hr != DXGI_ERROR_ACCESS_LOST &&
+                            hr != DXGI_ERROR_INVALID_CALL) {
+                            setError("DXGI Desktop Duplication konnte nicht wiederhergestellt werden: " +
+                                     hresultText(hr));
+                            break;
+                        }
+                    }
+                    if (WaitForSingleObject(stopEvent, 0) == WAIT_OBJECT_0) break;
+                    if (!recovered) {
+                        if (getError().empty()) {
+                            setError("DXGI Desktop Duplication blieb nach 20 Wiederherstellungsversuchen nicht verfügbar; "
+                                     "Adapter-/Ausgabeneuinitialisierung erforderlich.");
+                        }
+                        break;
+                    }
+                    continue;
                 }
                 if (FAILED(hr)) {
                     setError("DXGI AcquireNextFrame fehlgeschlagen: " + hresultText(hr));
