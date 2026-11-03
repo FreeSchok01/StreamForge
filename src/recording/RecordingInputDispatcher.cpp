@@ -161,7 +161,8 @@ void RecordingInputDispatcher::audioWorker() {
 
 void RecordingInputDispatcher::videoWorker() {
     for (;;) {
-        if (m_failure.load(std::memory_order_acquire) != Failure::None) return;
+        if (m_failure.load(std::memory_order_acquire) != Failure::None ||
+            m_abortRequested.load(std::memory_order_acquire)) return;
 
         OwnedVideoFrame frame;
         if (m_videoQueue.tryPop(frame)) {
@@ -200,6 +201,9 @@ bool RecordingInputDispatcher::stop(RecordingStopMode mode, std::string& error) 
 
     m_state.store(RecordingInputDispatcherState::Stopping, std::memory_order_release);
     m_accepting.store(false, std::memory_order_release);
+    if (mode == RecordingStopMode::Abort) {
+        m_abortRequested.store(true, std::memory_order_release);
+    }
     {
         std::unique_lock lock(m_waitMutex);
         m_submittersIdle.wait(lock, [this] {
@@ -208,9 +212,6 @@ bool RecordingInputDispatcher::stop(RecordingStopMode mode, std::string& error) 
         });
     }
 
-    if (mode == RecordingStopMode::Abort) {
-        m_abortRequested.store(true, std::memory_order_release);
-    }
     m_stopRequested.store(true, std::memory_order_release);
     notifyWorkers();
     if (m_audioThread.joinable()) m_audioThread.join();
