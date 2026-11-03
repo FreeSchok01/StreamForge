@@ -11,10 +11,11 @@ namespace streamforge {
 
 // CPU pixel pointers are non-owning and remain valid until encode() returns.
 // Native resources carry a shared lifetime lease for asynchronous consumers.
-// For D3D11, nativeResource is ID3D11Texture2D* and nativeDevice is its
-// ID3D11Device*, ID3D11DeviceContext* and a shared immediate-context mutex;
-// all remain valid while nativeResourceOwner is retained. Any consumer using
-// the immediate context must hold nativeContextMutex for the full operation.
+// For D3D11, nativeResource, nativeDevice and nativeContext are respectively
+// ID3D11Texture2D*, ID3D11Device* and ID3D11DeviceContext*. The shared mutex
+// serializes immediate-context access; the COM objects and mutex remain valid
+// while nativeResourceOwner is retained. Consumers must hold the mutex while
+// using the immediate context.
 struct VideoFrameInput {
     std::array<const std::uint8_t*, 4> data{};
     std::array<std::int32_t, 4> linesize{};
