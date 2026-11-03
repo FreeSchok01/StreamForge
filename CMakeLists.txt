@@ -17,8 +17,7 @@ add_library(streamforge_recording_core
 )
 target_compile_features(streamforge_recording_core PUBLIC cxx_std_20)
 target_include_directories(streamforge_recording_core
-    PUBLIC ${PROJECT_SOURCE_DIR}/include
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/recording
+    PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/recording
 )
 target_link_libraries(streamforge_recording_core PUBLIC Threads::Threads)
 
@@ -41,8 +40,7 @@ if(WIN32)
     )
     target_compile_features(streamforge_wasapi_capture PUBLIC cxx_std_20)
     target_include_directories(streamforge_wasapi_capture
-        PUBLIC ${PROJECT_SOURCE_DIR}/include
-        PRIVATE ${PROJECT_SOURCE_DIR}/src/capture
+        PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/capture
     )
     target_link_libraries(streamforge_wasapi_capture PRIVATE ole32 uuid)
     target_compile_options(streamforge_wasapi_capture PRIVATE /W4 /permissive-)
@@ -87,8 +85,7 @@ if(STREAMFORGE_WITH_FFMPEG)
     )
     target_compile_features(streamforge_ffmpeg_muxer PUBLIC cxx_std_20)
     target_include_directories(streamforge_ffmpeg_muxer
-        PUBLIC ${PROJECT_SOURCE_DIR}/include
-        PRIVATE ${PROJECT_SOURCE_DIR}/src/recording
+        PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/recording
     )
     if(WIN32)
         target_include_directories(streamforge_ffmpeg_muxer PUBLIC ${FFMPEG_INCLUDE_DIRS})
@@ -129,8 +126,7 @@ if(STREAMFORGE_WITH_FFMPEG)
         )
         target_compile_features(streamforge_windows_recording_session PUBLIC cxx_std_20)
         target_include_directories(streamforge_windows_recording_session
-            PUBLIC ${PROJECT_SOURCE_DIR}/include
-            PRIVATE ${PROJECT_SOURCE_DIR}/src/capture ${PROJECT_SOURCE_DIR}/src/recording
+            PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/capture ${PROJECT_SOURCE_DIR}/src/recording
         )
         target_link_libraries(streamforge_windows_recording_session PRIVATE
             streamforge_recording_core
