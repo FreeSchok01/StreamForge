@@ -6,8 +6,8 @@ on:
       - main
 
 concurrency:
-  group: recording-pipeline-${{ github.ref }}
-  cancel-in-progress: true
+  group: recording-pipeline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   lifecycle-tests:
