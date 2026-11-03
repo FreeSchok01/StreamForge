@@ -21,8 +21,10 @@ by a Windows recording-session controller. DXGI now retains an owned D3D11
 BGRA texture and its D3D11 device in a shared COM lifetime lease alongside
 the CPU staging-readback frame, so future GPU consumers can access both safely
 across the dispatcher handoff.
-The current FFmpeg software encoder still uses CPU pixels; direct GPU encoding,
-hardware encoder adapters, desktop UI and Twitch output are not yet implemented.
+The media frame contract also accepts native-only D3D11 BGRA frames for future
+GPU encoders, while the current FFmpeg software encoder explicitly requires CPU
+pixels. Direct GPU encoding, hardware encoder adapters, desktop UI and Twitch
+output are not yet implemented.
 
 ## Build: core lifecycle tests
 
