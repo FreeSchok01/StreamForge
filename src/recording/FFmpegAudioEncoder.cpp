@@ -11,6 +11,8 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <cerrno>
+#include <exception>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -96,7 +98,6 @@ struct FFmpegAudioEncoder::Impl final {
     AVAudioFifo* fifo{nullptr};
     State state{State::Empty};
     std::int64_t nextPts{0};
-    std::int64_t firstTimestampNs{0};
     std::int64_t expectedTimestampNs{0};
     bool hasTimestamp{false};
 
@@ -497,7 +498,6 @@ bool FFmpegAudioEncoder::encode(const AudioFrame& frame, std::string& error) {
     }
 
     if (!m_impl->hasTimestamp) {
-        m_impl->firstTimestampNs = frame.timestampNs;
         m_impl->expectedTimestampNs = frame.timestampNs;
         m_impl->hasTimestamp = true;
     } else {
