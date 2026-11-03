@@ -24,15 +24,18 @@ for the existing FFmpeg recording session.
 Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
 the shared session clock. `VideoFrameInput` carries the native resource type,
-D3D11 texture pointer, its owning D3D11 device pointer and a shared lifetime
-owner that retains both COM objects. The media frame contract also permits a D3D11 BGRA frame with no CPU planes,
+D3D11 texture pointer, its owning D3D11 device and immediate-context pointers,
+a shared immediate-context mutex, and a lifetime owner retaining the COM
+objects and mutex. The media frame contract also permits a D3D11 BGRA frame with no CPU planes,
 so a future GPU encoder can avoid readback. The current FFmpeg software encoder
 explicitly rejects native-only frames and consumes CPU pixels when provided;
 this is not yet a zero-copy encoding path.
-The lease keeps both COM objects alive, but it does not transfer ownership of
-the capture worker's immediate context. Consumers must use a context they own
-or externally serialize immediate-context access; D3D11 immediate contexts
-must not be used concurrently from multiple threads.
+The lease retains the capture device's immediate context and a shared mutex.
+DXGI locks this mutex around immediate-context operations, and downstream GPU
+consumers must lock the same mutex around their operations. This serializes
+access across the capture and consumer workers; D3D11 immediate contexts must
+not be used concurrently from multiple threads. The lease does not grant
+exclusive ownership of the context.
 
 ## D3D11 BGRA-to-NV12 capability probe
 
