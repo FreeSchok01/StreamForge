@@ -334,6 +334,7 @@ void nativeVideoResourceLifetime() {
           "native resource remains alive while view owns its lease");
     check(static_cast<bool>(view.nativeResourceOwner),
           "video input view retains native resource owner");
+    check(view.isValid(), "native video input view remains valid");
 }
 
 void dispatcherNormalStop() {
