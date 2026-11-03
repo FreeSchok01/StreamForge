@@ -25,6 +25,13 @@ struct OwnedVideoFrame {
 
     [[nodiscard]] bool isValid() const noexcept {
         if (width <= 0 || height <= 0 || !timebase.isValid()) return false;
+        if (nativeResourceType == NativeVideoResourceType::None) {
+            if (nativeResource || nativeResourceOwner) return false;
+        } else if (nativeResourceType == NativeVideoResourceType::D3D11Texture2D) {
+            if (!nativeResource || !nativeResourceOwner) return false;
+        } else {
+            return false;
+        }
         const auto hasBytes = [](const std::vector<std::uint8_t>& bytes,
                                  std::int32_t stride, std::int32_t rows) {
             if (stride <= 0 || rows <= 0) return false;
