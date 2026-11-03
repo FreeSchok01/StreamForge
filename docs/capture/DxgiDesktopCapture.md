@@ -4,12 +4,18 @@
 
 `DxgiDesktopCaptureSource` captures a selected DXGI output using
 `IDXGIOutputDuplication`. The caller selects an adapter and output index.
-Frames are acquired on a dedicated worker thread and copied into owned BGRA8
-CPU memory using a D3D11 staging texture.
+Frames are acquired on a dedicated worker thread. Each frame is copied both to
+owned BGRA8 CPU memory using a D3D11 staging texture and to a separate
+D3D11 default-usage texture retained through a shared native-resource lease.
+The lease survives `IDXGIOutputDuplication::ReleaseFrame()` and the dispatcher
+queue handoff, allowing a future GPU consumer to access the texture safely.
 
 Each `OwnedVideoFrame` includes the DXGI present timestamp converted from QPC
 ticks into nanoseconds, allowing the FFmpeg video encoder to derive PTS from
-the shared session clock.
+the shared session clock. `VideoFrameInput` carries the native resource type,
+opaque D3D11 texture pointer and shared lifetime owner. The current FFmpeg
+software encoder ignores this native resource and consumes the CPU pixels; this
+is not yet a zero-copy encoding path.
 
 ## Connecting to the recording dispatcher
 
@@ -43,10 +49,11 @@ before finalizing the recording.
 
 ## Limitations
 
-- The first implementation uses GPU-to-CPU staging readback on every frame. It
-  is a functional baseline, not the final GPU-first rendering path.
-- DXGI access-lost/device-change errors are reported; automatic duplication
-  recreation is not implemented yet.
+- CPU staging readback still occurs on every frame for the software encoder.
+  The additional retained D3D11 texture is a GPU copy, not zero-copy capture.
+- On `DXGI_ERROR_ACCESS_LOST`, duplication is recreated against the existing
+  adapter/output with up to 20 retries at 250 ms intervals. Full adapter/output
+  re-enumeration after topology changes is not implemented.
 - Output rotation and cursor composition are not implemented.
 - Adapter/output enumeration and UI selection are not implemented; callers
   currently supply numeric adapter/output indices.
