@@ -31,6 +31,7 @@ struct VideoFrameInput {
 
         const bool hasNativeResource =
             nativeResourceType == NativeVideoResourceType::D3D11Texture2D &&
+            pixelFormat == PixelFormat::BGRA8 &&
             nativeResource && nativeDevice && nativeResourceOwner;
         const bool hasNoNativeResource =
             nativeResourceType == NativeVideoResourceType::None &&
