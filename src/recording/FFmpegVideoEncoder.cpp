@@ -9,6 +9,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <exception>
 #include <limits>
@@ -225,7 +226,8 @@ bool FFmpegVideoEncoder::initialize(std::string& error) {
     context->framerate = AVRational{config.fpsNumerator, config.fpsDenominator};
     context->bit_rate = config.bitrate;
     context->gop_size = config.keyframeInterval;
-    context->max_b_frames = config.allowBFrames ? 2 : 0;
+    context->max_b_frames =
+        (!config.lowLatency && config.allowBFrames) ? 2 : 0;
     context->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     context->thread_count = 0;
 
