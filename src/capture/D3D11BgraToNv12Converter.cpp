@@ -19,6 +19,8 @@ namespace {
 using Microsoft::WRL::ComPtr;
 
 struct Nv12TexturePool final {
+    static constexpr std::size_t kMaxCachedTextures = 8;
+
     std::mutex mutex;
     std::vector<ComPtr<ID3D11Texture2D>> available;
 
@@ -34,6 +36,9 @@ struct Nv12TexturePool final {
         if (!texture) return;
         try {
             std::lock_guard lock(mutex);
+            if (available.size() >= kMaxCachedTextures) {
+                return; // Drop the excess texture instead of retaining an unbounded cache.
+            }
             available.push_back(std::move(texture));
         } catch (...) {
             // Releasing the texture is a safe fallback if the free-list cannot grow.
