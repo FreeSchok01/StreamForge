@@ -15,6 +15,7 @@ struct VideoFrameInput {
     std::int32_t height{0};
     PixelFormat pixelFormat{PixelFormat::Unknown};
     std::int64_t pts{kNoTimestamp};
+    std::int64_t timestampNs{kNoTimestamp};
     MediaTimebase timebase{};
 
     [[nodiscard]] bool isValid() const noexcept {
