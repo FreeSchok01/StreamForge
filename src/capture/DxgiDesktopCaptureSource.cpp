@@ -66,6 +66,7 @@ bool copyDesktopFrame(
     ID3D11DeviceContext* context,
     ID3D11Texture2D* source,
     std::int64_t timestampNs,
+    bool includeCpuReadback,
     ComPtr<ID3D11Texture2D>& staging,
     OwnedVideoFrame& output,
     std::string& error) {
@@ -84,35 +85,8 @@ bool copyDesktopFrame(
         return false;
     }
 
-    D3D11_TEXTURE2D_DESC stagingDesc = sourceDesc;
-    stagingDesc.Usage = D3D11_USAGE_STAGING;
-    stagingDesc.BindFlags = 0;
-    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    stagingDesc.MiscFlags = 0;
-    stagingDesc.SampleDesc.Count = 1;
-    stagingDesc.SampleDesc.Quality = 0;
-
-    bool recreate = !staging;
-    if (staging) {
-        D3D11_TEXTURE2D_DESC current{};
-        staging->GetDesc(&current);
-        recreate = current.Width != stagingDesc.Width ||
-                   current.Height != stagingDesc.Height ||
-                   current.Format != stagingDesc.Format;
-    }
-    if (recreate) {
-        staging.Reset();
-        const HRESULT createResult =
-            device->CreateTexture2D(&stagingDesc, nullptr, &staging);
-        if (FAILED(createResult)) {
-            error = "DXGI-Staging-Textur konnte nicht erstellt werden: " +
-                    hresultText(createResult);
-            return false;
-        }
-    }
-
-    // Retain an owned default-usage texture beyond DXGI ReleaseFrame().
-    // This is a GPU copy, not zero-copy; software encoding still uses CPU pixels.
+    // Always make an independently owned GPU texture before ReleaseFrame().
+    // This is a GPU copy, not zero-copy capture.
     D3D11_TEXTURE2D_DESC nativeDesc = sourceDesc;
     nativeDesc.Usage = D3D11_USAGE_DEFAULT;
     nativeDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
@@ -128,51 +102,12 @@ bool copyDesktopFrame(
     }
     context->CopyResource(nativeTexture.Get(), source);
 
-    context->CopyResource(staging.Get(), source);
-    D3D11_MAPPED_SUBRESOURCE mapped{};
-    const HRESULT mapResult =
-        context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped);
-    if (FAILED(mapResult)) {
-        error = "DXGI-Staging-Textur konnte nicht gelesen werden: " +
-                hresultText(mapResult);
-        return false;
-    }
-
     output = {};
     output.width = static_cast<std::int32_t>(sourceDesc.Width);
     output.height = static_cast<std::int32_t>(sourceDesc.Height);
     output.pixelFormat = PixelFormat::BGRA8;
-    output.linesize[0] = output.width * 4;
     output.timestampNs = timestampNs;
     output.timebase = {1, 1'000'000'000};
-
-    const auto stride = static_cast<std::size_t>(output.linesize[0]);
-    const auto rows = static_cast<std::size_t>(output.height);
-    if (rows > std::numeric_limits<std::size_t>::max() / stride) {
-        context->Unmap(staging.Get(), 0);
-        error = "DXGI-Framegröße überschreitet den Adressraum.";
-        return false;
-    }
-    const auto* sourceBytes = static_cast<const std::uint8_t*>(mapped.pData);
-    if (!sourceBytes || mapped.RowPitch < output.linesize[0]) {
-        context->Unmap(staging.Get(), 0);
-        error = "DXGI-Mapped-Textur hat einen ungültigen Zeilenabstand.";
-        return false;
-    }
-    try {
-        output.planes[0].resize(stride * rows);
-    } catch (...) {
-        context->Unmap(staging.Get(), 0);
-        error = "Speicher für DXGI-CPU-Frame konnte nicht reserviert werden.";
-        return false;
-    }
-    for (std::size_t row = 0; row < rows; ++row) {
-        std::memcpy(
-            output.planes[0].data() + row * stride,
-            sourceBytes + row * static_cast<std::size_t>(mapped.RowPitch),
-            stride);
-    }
-    context->Unmap(staging.Get(), 0);
 
     try {
         auto lease = std::make_shared<D3D11FrameLease>();
@@ -184,11 +119,86 @@ bool copyDesktopFrame(
         error = "Lebensdauerhalter für native D3D11-Frame-Textur und Gerät konnte nicht erstellt werden.";
         return false;
     }
-    const auto lease = std::static_pointer_cast<D3D11FrameLease>(output.nativeResourceOwner);
+    const auto lease =
+        std::static_pointer_cast<D3D11FrameLease>(output.nativeResourceOwner);
     output.nativeResourceType = NativeVideoResourceType::D3D11Texture2D;
     output.nativeResource = lease->texture.Get();
     output.nativeDevice = lease->device.Get();
-    return output.isValid();
+
+    if (includeCpuReadback) {
+        D3D11_TEXTURE2D_DESC stagingDesc = sourceDesc;
+        stagingDesc.Usage = D3D11_USAGE_STAGING;
+        stagingDesc.BindFlags = 0;
+        stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        stagingDesc.MiscFlags = 0;
+        stagingDesc.SampleDesc.Count = 1;
+        stagingDesc.SampleDesc.Quality = 0;
+
+        bool recreate = !staging;
+        if (staging) {
+            D3D11_TEXTURE2D_DESC current{};
+            staging->GetDesc(&current);
+            recreate = current.Width != stagingDesc.Width ||
+                       current.Height != stagingDesc.Height ||
+                       current.Format != stagingDesc.Format;
+        }
+        if (recreate) {
+            staging.Reset();
+            const HRESULT createResult =
+                device->CreateTexture2D(&stagingDesc, nullptr, &staging);
+            if (FAILED(createResult)) {
+                error = "DXGI-Staging-Textur konnte nicht erstellt werden: " +
+                        hresultText(createResult);
+                return false;
+            }
+        }
+
+        context->CopyResource(staging.Get(), source);
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        const HRESULT mapResult =
+            context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped);
+        if (FAILED(mapResult)) {
+            error = "DXGI-Staging-Textur konnte nicht gelesen werden: " +
+                    hresultText(mapResult);
+            return false;
+        }
+
+        output.linesize[0] = output.width * 4;
+        const auto stride = static_cast<std::size_t>(output.linesize[0]);
+        const auto rows = static_cast<std::size_t>(output.height);
+        if (rows > std::numeric_limits<std::size_t>::max() / stride) {
+            context->Unmap(staging.Get(), 0);
+            error = "DXGI-Framegröße überschreitet den Adressraum.";
+            return false;
+        }
+        const auto* sourceBytes =
+            static_cast<const std::uint8_t*>(mapped.pData);
+        if (!sourceBytes || mapped.RowPitch < static_cast<UINT>(output.linesize[0])) {
+            context->Unmap(staging.Get(), 0);
+            error = "DXGI-Mapped-Textur hat einen ungültigen Zeilenabstand.";
+            return false;
+        }
+        try {
+            output.planes[0].resize(stride * rows);
+        } catch (...) {
+            context->Unmap(staging.Get(), 0);
+            error = "Speicher für DXGI-CPU-Frame konnte nicht reserviert werden.";
+            return false;
+        }
+        for (std::size_t row = 0; row < rows; ++row) {
+            std::memcpy(
+                output.planes[0].data() + row * stride,
+                sourceBytes + row * static_cast<std::size_t>(mapped.RowPitch),
+                stride);
+        }
+        context->Unmap(staging.Get(), 0);
+    }
+
+    if (!output.isValid()) {
+        error = "DXGI lieferte einen ungültigen CPU-/GPU-Frame.";
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -410,7 +420,7 @@ struct DxgiDesktopCaptureSource::Impl final {
                 std::string copyError;
                 if (!copyDesktopFrame(
                         device.Get(), context.Get(), sourceTexture.Get(),
-                        timestampNs, staging, frame, copyError)) {
+                        timestampNs, config.includeCpuReadback, staging, frame, copyError)) {
                     setError(copyError.empty()
                         ? "DXGI-Frame konnte nicht kopiert werden." : copyError);
                     break;
