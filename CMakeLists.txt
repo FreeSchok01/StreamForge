@@ -37,12 +37,14 @@ if(WIN32)
     add_library(streamforge_wasapi_capture
         src/capture/WasapiAudioCaptureSource.cpp
         src/capture/WasapiAudioCaptureSource.h
+        src/capture/WasapiDeviceEnumerator.cpp
+        src/capture/WasapiDeviceEnumerator.h
     )
     target_compile_features(streamforge_wasapi_capture PUBLIC cxx_std_20)
     target_include_directories(streamforge_wasapi_capture
         PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/capture
     )
-    target_link_libraries(streamforge_wasapi_capture PRIVATE ole32 uuid)
+    target_link_libraries(streamforge_wasapi_capture PRIVATE ole32 uuid propsys)
     target_compile_options(streamforge_wasapi_capture PRIVATE /W4 /permissive-)
 
     add_library(streamforge_dxgi_capture
