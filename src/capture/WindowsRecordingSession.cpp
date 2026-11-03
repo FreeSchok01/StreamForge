@@ -97,7 +97,34 @@ bool WindowsRecordingSession::start(
         return false;
     }
     m_videoStarted = true;
-    m_started = true;
+
+    // Capture workers can fail immediately after publishing their startup result.
+    // Verify all three workers before exposing the session as successfully started.
+    if (!m_audioCapture.isRunning() || !m_videoCapture.isRunning() ||
+        !m_dispatcher.isRunning()) {
+        const std::string audioStartupError = m_audioCapture.lastError();
+        const std::string videoStartupError = m_videoCapture.lastError();
+        const std::string dispatcherStartupError = m_dispatcher.snapshot().error;
+
+        std::string ignoredCaptureError;
+        (void)m_videoCapture.stop(ignoredCaptureError);
+        (void)m_audioCapture.stop(ignoredCaptureError);
+        m_videoStarted = false;
+        m_audioStarted = false;
+
+        std::string ignoredDispatcherError;
+        (void)m_dispatcher.stop(RecordingStopMode::Abort, ignoredDispatcherError);
+
+        error = "Windows-Recording-Session konnte nicht stabil gestartet werden.";
+        if (!audioStartupError.empty()) error += " WASAPI: " + audioStartupError;
+        if (!videoStartupError.empty()) error += " DXGI: " + videoStartupError;
+        if (!dispatcherStartupError.empty()) {
+            error += " Recording: " + dispatcherStartupError;
+        }
+        return false;
+    }
+
+    m_started.store(true, std::memory_order_release);
     return true;
 }
 
